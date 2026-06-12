@@ -1,14 +1,14 @@
 # test_ai.py
 """
 B팀 검증용: 유닛 테스트
-이 파일은 맵 충돌 감지, A* 알고리즘의 동작, 적 난이도 속성 변경 등의 로직을
+이 파일은 맵 충돌 감지, A* 알고리즘의 동작, 적 학점별 스펙, 난이도 배율 등의 로직을
 자동화하여 검증하는 테스트 코드입니다.
 """
 
 import unittest
 from map import Map
 from pathfinding import a_star
-from enemy import EnemyManager, EnemyState, Enemy
+from enemy import EnemyManager, EnemyState, Enemy, Projectile, GRADE_SPECS
 
 class TestDoomAI(unittest.TestCase):
     def setUp(self):
@@ -29,26 +29,19 @@ class TestDoomAI(unittest.TestCase):
 
     def test_astar_pathfinding(self):
         """A* 알고리즘 경로 찾기 동작 검증"""
-        # 플레이어 스폰(1, 1)에서 첫 번째 스폰지점(3, 3)으로의 경로 탐색
         start = (1, 1)
         goal = (3, 3)
         path = a_star(self.game_map, start, goal)
         
-        # 경로가 존재해야 함
         self.assertTrue(len(path) > 0)
-        # 경로의 시작점은 start여야 함
         self.assertEqual(path[0], start)
-        # 경로의 끝점은 goal이어야 함
         self.assertEqual(path[-1], goal)
         
-        # 경로 상의 모든 셀이 벽이 아니어야 함
         for col, row in path:
             self.assertEqual(self.game_map.grid[row][col], 0)
 
     def test_astar_blocked_path(self):
         """벽으로 완전히 막힌 목표에 대한 A* 예외 처리 검증"""
-        # 인위적으로 완전히 격리된 맵 생성
-        # 3x3 맵에서 (1, 1)이 빈 공간이고 주변이 다 벽
         class BlockedMap(Map):
             def __init__(self):
                 self.grid = [
@@ -60,29 +53,93 @@ class TestDoomAI(unittest.TestCase):
                 self.cols = 3
                 
         blocked_map = BlockedMap()
-        # 벽인 (0, 0)으로 가는 경로 검색 -> 빈 리스트여야 함
         path = a_star(blocked_map, (1, 1), (0, 0))
         self.assertEqual(path, [])
 
-    def test_difficulty_scaling(self):
-        """난이도 조절이 적의 스펙에 정상적으로 미치는지 검증"""
-        # Easy 난이도로 적 스폰
+    def test_grade_specs(self):
+        """학점별 스펙이 올바르게 적용되는지 검증"""
+        c_enemy = Enemy(5.0, 5.0, grade='C')
+        d_enemy = Enemy(5.0, 5.0, grade='D')
+        f_enemy = Enemy(5.0, 5.0, grade='F')
+
+        # F학점은 C학점의 체력 2배, 공격력 2배
+        self.assertEqual(f_enemy.max_hp, c_enemy.max_hp * 2)
+        self.assertEqual(f_enemy.damage, c_enemy.damage * 2)
+
+        # D학점은 C학점과 동일 체력
+        self.assertEqual(d_enemy.max_hp, c_enemy.max_hp)
+
+        # D학점은 근접 공격 범위 없음 (0.0)
+        self.assertEqual(d_enemy.attack_range, 0.0)
+        self.assertGreater(c_enemy.attack_range, 0.0)
+        self.assertGreater(f_enemy.attack_range, 0.0)
+
+        # 처치 점수: F=300, D=200, C=100
+        self.assertEqual(f_enemy.kill_score, 300)
+        self.assertEqual(d_enemy.kill_score, 200)
+        self.assertEqual(c_enemy.kill_score, 100)
+
+    def test_difficulty_hp_scaling(self):
+        """난이도에 따른 체력 배율 (1 / 1.5 / 2) 검증"""
+        # Easy (배율 1.0)
         self.enemy_manager.set_difficulty('easy')
         self.enemy_manager.spawn_enemies(self.game_map)
-        
-        easy_enemy = self.enemy_manager.enemies[0]
-        easy_hp = easy_enemy.max_hp
-        easy_speed = easy_enemy.speed
-        
-        # Hard 난이도로 변경
+        easy_f = [e for e in self.enemy_manager.enemies if e.grade == 'F'][0]
+        easy_c = [e for e in self.enemy_manager.enemies if e.grade == 'C'][0]
+
+        # Hard (배율 2.0)
         self.enemy_manager.set_difficulty('hard')
-        hard_enemy = self.enemy_manager.enemies[0]
-        hard_hp = hard_enemy.max_hp
-        hard_speed = hard_enemy.speed
-        
-        # Hard 난이도의 체력과 속도가 Easy 난이도보다 높아야 함
-        self.assertTrue(hard_hp > easy_hp)
-        self.assertTrue(hard_speed > easy_speed)
+        self.enemy_manager.spawn_enemies(self.game_map)
+        hard_f = [e for e in self.enemy_manager.enemies if e.grade == 'F'][0]
+        hard_c = [e for e in self.enemy_manager.enemies if e.grade == 'C'][0]
+
+        # Hard 체력이 Easy 체력의 2배
+        self.assertEqual(hard_f.max_hp, easy_f.max_hp * 2)
+        self.assertEqual(hard_c.max_hp, easy_c.max_hp * 2)
+
+    def test_difficulty_score_scaling(self):
+        """난이도에 따른 처치 점수 배율 (1 / 1.5 / 2) 검증"""
+        self.enemy_manager.set_difficulty('easy')
+        self.enemy_manager.spawn_enemies(self.game_map)
+        easy_score = [e for e in self.enemy_manager.enemies if e.grade == 'F'][0].kill_score
+
+        self.enemy_manager.set_difficulty('hard')
+        self.enemy_manager.spawn_enemies(self.game_map)
+        hard_score = [e for e in self.enemy_manager.enemies if e.grade == 'F'][0].kill_score
+
+        # Hard 점수가 Easy의 2배
+        self.assertEqual(hard_score, easy_score * 2)
+
+    def test_spawn_composition(self):
+        """스폰 구성 검증: F 1마리, D 2마리, C 2마리"""
+        self.enemy_manager.spawn_enemies(self.game_map)
+        grades = [e.grade for e in self.enemy_manager.enemies]
+        self.assertEqual(grades.count('F'), 1)
+        self.assertEqual(grades.count('D'), 2)
+        self.assertEqual(grades.count('C'), 2)
+
+    def test_take_damage_returns_score(self):
+        """적 사망 시 처치 점수가 반환되는지 검증"""
+        enemy = Enemy(5.0, 5.0, grade='C')
+        # 한 번에 죽이기
+        score = enemy.take_damage(9999)
+        self.assertEqual(score, 100)
+        self.assertEqual(enemy.state, EnemyState.DEAD)
+
+    def test_d_grade_no_melee(self):
+        """D학점 적은 근접 공격 상태(ATTACK)에 진입하지 않는지 검증"""
+        d_enemy = Enemy(5.0, 5.0, grade='D')
+        # 플레이어가 바로 옆에 있어도 ATTACK이 아닌 CHASE여야 함
+        d_enemy.update((5.5, 5.5), self.game_map, 0.016)
+        self.assertNotEqual(d_enemy.state, EnemyState.ATTACK)
+
+    def test_projectile_wall_collision(self):
+        """투사체가 벽에 부딪히면 소멸하는지 검증"""
+        # (0.5, 0.5) 방향은 벽
+        proj = Projectile(1.5, 1.5, -1.0, 0.0, damage=8)
+        for _ in range(20):
+            proj.update(self.game_map, 0.05)
+        self.assertFalse(proj.alive)
 
 if __name__ == '__main__':
     unittest.main()
