@@ -18,7 +18,7 @@ import sys
 # ────────────────────────────
 W, H        = 960, 600
 FPS         = 60
-TITLE       = "DOOM-LITE"
+TITLE       = "Boogi-Man"
 
 # 팔레트 (둠 느낌의 다크 + 핏빛 계열)
 C_BLACK     = (0,   0,   0)
@@ -321,10 +321,10 @@ class StartScreen:
 
         # 타이틀
         blink_alpha = int(200 + 55 * math.sin(self._tick * 0.004))
-        title_surf  = self.font_title.render(TITLE, True, C_RED)
+        title_surf  = self.font_title.render("Boogi-Man", True, C_RED)
         # 글로우 효과 (오프셋 그림자)
         for ox, oy in [(-3,3),(3,-3),(-3,-3),(3,3)]:
-            shadow = self.font_title.render(TITLE, True, C_DARKRED)
+            shadow = self.font_title.render("Boogi-Man", True, C_DARKRED)
             scr.blit(shadow, (W//2 - shadow.get_width()//2 + ox,
                               H//3 - shadow.get_height()//2 + oy))
         scr.blit(title_surf, (W//2 - title_surf.get_width()//2, H//3 - title_surf.get_height()//2))
