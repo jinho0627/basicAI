@@ -303,41 +303,57 @@ class EnemyManager:
     난이도에 따른 스폰, 업데이트, 투사체 관리, 점수 계산을 담당합니다.
     """
 
-    # 난이도별 배율 테이블
+    # 난이도별 배율 및 스폰 개수 테이블 (영어와 한국어 지원)
     DIFFICULTY_TABLE = {
-        'easy':   {'hp_mult': 1.0, 'score_mult': 1.0},
-        'medium': {'hp_mult': 1.5, 'score_mult': 1.5},
-        'hard':   {'hp_mult': 2.0, 'score_mult': 2.0},
+        'easy':   {'hp_mult': 1.0, 'score_mult': 1.0, 'spawn_count': 5},
+        'medium': {'hp_mult': 1.5, 'score_mult': 1.5, 'spawn_count': 10},
+        'hard':   {'hp_mult': 2.0, 'score_mult': 2.0, 'spawn_count': 15},
+        '쉬움':   {'hp_mult': 1.0, 'score_mult': 1.0, 'spawn_count': 5},
+        '보통':   {'hp_mult': 1.5, 'score_mult': 1.5, 'spawn_count': 10},
+        '어려움': {'hp_mult': 2.0, 'score_mult': 2.0, 'spawn_count': 15},
     }
 
-    def __init__(self, difficulty='medium'):
+    def __init__(self, difficulty='보통'):
         self.enemies = []
         self.projectiles = []  # 현재 날아다니는 투사체 목록
         self.difficulty = difficulty.lower()
 
     def set_difficulty(self, difficulty):
         """게임 진행 중 난이도 변경 인터페이스 (C팀 연동)"""
-        self.difficulty = difficulty.lower()
+        if isinstance(difficulty, str):
+            self.difficulty = difficulty.lower()
+        else:
+            self.difficulty = str(difficulty).lower()
         if self.difficulty not in self.DIFFICULTY_TABLE:
-            self.difficulty = 'medium'
+            self.difficulty = '보통'
 
     def spawn_enemies(self, map_obj):
         """
-        map.py의 enemy_spawns 정보를 바탕으로 난이도를 적용하여 적들을 스폰시킵니다.
+        map.py의 정보를 바탕으로 난이도별 스폰 개수와 스펙을 적용하여 적들을 스폰시킵니다.
 
         스폰 배치:
-          - 5개 스폰 지점: F 1마리, D 2마리, C 2마리
-          - F학점은 적게 스폰되는 대신 강력함
+          - 쉬움 / easy (5마리): F 1마리, D 2마리, C 2마리
+          - 보통 / medium (10마리): F 2마리, D 4마리, C 4마리
+          - 어려움 / hard (15마리): F 3마리, D 6마리, C 6마리
         """
         self.enemies.clear()
-        settings = self.DIFFICULTY_TABLE.get(self.difficulty, self.DIFFICULTY_TABLE['medium'])
+        settings = self.DIFFICULTY_TABLE.get(self.difficulty, self.DIFFICULTY_TABLE['보통'])
         hp_mult = settings['hp_mult']
         score_mult = settings['score_mult']
+        spawn_count = settings['spawn_count']
 
-        # 스폰 지점별 학점 배정: F는 1마리만 (강력하므로 적게 스폰)
-        grades = ['F', 'D', 'C', 'D', 'C']
+        # 맵에서 난이도에 해당하는 개수만큼의 스폰 포인트를 동적으로 생성합니다.
+        spawns = map_obj.generate_enemy_spawns(num=spawn_count, min_dist=5)
 
-        for idx, (spawn_x, spawn_y) in enumerate(map_obj.enemy_spawns):
+        # F, D, C 학점 순으로 스펙에 맞게 배분 (F는 약 20%의 가장 적은 비율을 차지하도록 설정)
+        f_count = max(1, spawn_count // 5)
+        rem = spawn_count - f_count
+        d_count = rem // 2
+        c_count = rem - d_count
+
+        grades = ['F'] * f_count + ['D'] * d_count + ['C'] * c_count
+
+        for idx, (spawn_x, spawn_y) in enumerate(spawns):
             grade = grades[idx % len(grades)]
 
             enemy = Enemy(
