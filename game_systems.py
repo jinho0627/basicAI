@@ -50,8 +50,11 @@ SHOOT_CD    = 250
 # ────────────────────────────
 class SoundEngine:
     def __init__(self):
-        pygame.mixer.pre_init(44100, -16, 1, 512)
-        pygame.mixer.init()
+        try:
+              pygame.mixer.pre_init(44100, -16, 1, 512)
+              pygame.mixer.init()
+        except:
+              pass
         self._cache: dict[str, pygame.mixer.Sound] = {}
         self._build_sounds()
 
@@ -82,6 +85,8 @@ class SoundEngine:
         return snd
 
     def _build_sounds(self):
+        if not pygame.mixer.get.init():
+              return
         # 총소리: 짧은 노이즈 + 낮은 사인
         self._cache["shoot"]   = self._noise_burst(80,  0.7)
         # 피격음
