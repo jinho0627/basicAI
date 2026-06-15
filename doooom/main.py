@@ -211,6 +211,8 @@ class IntegratedGame:
             self.update(dt)
             self.render()
 
+#main.py
+#게임 실행 진입점 - 엔진을 시작만 함
 
 if __name__ == "__main__":
     game = IntegratedGame()
