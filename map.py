@@ -142,8 +142,8 @@ class Map:
             if dist >= min_dist:
                 candidates.append((col, row, dist))
 
-        # 거리가 먼 순으로 정렬 후 골고루 분산 선택
-        candidates.sort(key=lambda c: c[2], reverse=True)
+        # 랜덤하게 골고루 분산 선택하기 위해 셔플
+        random.shuffle(candidates)
 
         spawns = []
         for col, row, _ in candidates:
@@ -239,4 +239,7 @@ class Map:
                     line += "██"
                 else:
                     line += "  "
-            print(line)
+            try:
+                print(line)
+            except UnicodeEncodeError:
+                print(line.replace("██", "##"))
