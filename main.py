@@ -139,10 +139,12 @@ class GameEngine:
         player_pos = self.player.get_pos()
         self.enemy_manager.update_all(player_pos, self.game_map, dt)
         
-        # B팀: 투사체 충돌 검사 → C팀 체력 감소
-        damage = self.enemy_manager.check_projectile_hits(player_pos)
-        if damage > 0:
-            self.game_systems.health.take_damage(damage)
+        # B팀: 투사체 및 근접 공격 충돌 검사 → C팀 체력 감소
+        proj_damage = self.enemy_manager.check_projectile_hits(player_pos)
+        melee_damage = self.enemy_manager.check_melee_hits()
+        total_damage = proj_damage + melee_damage
+        if total_damage > 0:
+            self.game_systems.health.take_damage(total_damage)
         
         # C팀: 시스템 업데이트 (무기, 체력, 점수)
         self.game_systems.update(dt_ms, keys)

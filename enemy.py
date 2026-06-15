@@ -105,6 +105,7 @@ class Enemy:
         # 근접 공격 주기 관리 (초 단위) - D학점은 근접 공격 없음
         self.attack_cooldown = 0.0
         self.attack_rate = 1.0  # 1초에 1번 공격 가능
+        self.pending_damage = 0  # 대기 중인 근접 피해량
 
         # D학점 원거리(공기포) 공격 관련
         self.shoot_cooldown = 0.0
@@ -203,6 +204,7 @@ class Enemy:
         if self.attack_cooldown <= 0:
             # 공격 실행
             self.attack_cooldown = self.attack_rate
+            self.pending_damage += self.damage
             print(f"[AI ATTACK] {self.grade}학점 적이 플레이어에게 {self.damage} 만큼의 피해를 입혔습니다!")
 
     def chase_behavior(self, player_pos, grid_map, dt):
@@ -403,6 +405,17 @@ class EnemyManager:
             if dist < Projectile.RADIUS + 0.3:  # 플레이어 반지름 0.3
                 total_damage += proj.damage
                 proj.alive = False
+        return total_damage
+
+    def check_melee_hits(self):
+        """
+        모든 적의 대기 중인 근접 피해를 합산하고 비운 뒤 반환합니다.
+        """
+        total_damage = 0
+        for enemy in self.enemies:
+            if hasattr(enemy, 'pending_damage') and enemy.pending_damage > 0:
+                total_damage += enemy.pending_damage
+                enemy.pending_damage = 0
         return total_damage
 
     def clear_projectiles(self):

@@ -153,6 +153,28 @@ class TestEnemySpecs(unittest.TestCase):
         d_enemy.update((5.5, 5.5), game_map, 0.016)
         self.assertNotEqual(d_enemy.state, EnemyState.ATTACK)
 
+    def test_melee_attack_pending_damage(self):
+        """근접 공격 시 pending_damage가 누적되고 check_melee_hits로 수집/초기화되는지 검증"""
+        game_map = Map(seed=42)
+        c_enemy = Enemy(5.0, 5.0, grade='C')
+        
+        # 아직 쿨다운/공격 전이므로 pending_damage는 0이어야 함
+        self.assertEqual(c_enemy.pending_damage, 0)
+        
+        # 공격 사거리 안에서 update 호출하여 ATTACK 상태 유도 및 쿨다운 초기화
+        # c_enemy.attack_cooldown이 0일 때 attack_behavior 실행
+        c_enemy.update((5.1, 5.1), game_map, 0.016)
+        self.assertEqual(c_enemy.state, EnemyState.ATTACK)
+        self.assertGreater(c_enemy.pending_damage, 0)
+        self.assertEqual(c_enemy.pending_damage, c_enemy.damage)
+        
+        # EnemyManager 생성하여 등록 후 check_melee_hits 호출 테스트
+        em = EnemyManager()
+        em.enemies.append(c_enemy)
+        total_dmg = em.check_melee_hits()
+        self.assertEqual(total_dmg, c_enemy.damage)
+        self.assertEqual(c_enemy.pending_damage, 0)
+
     def test_projectile_wall_collision(self):
         """투사체가 벽에 부딪히면 소멸하는지 검증"""
         game_map = Map(seed=42)
