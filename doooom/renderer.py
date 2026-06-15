@@ -1,6 +1,5 @@
 """
-A팀 담당: FPS 화면 렌더링
-레이캐스팅 결과를 바탕으로 3D 원근감 있는 화면을 그립니다.
+A팀: 3D 렌더링 (고품질 버전)
 """
 
 import pygame
@@ -8,95 +7,99 @@ import math
 
 
 class Renderer:
-    def __init__(self, screen_width, screen_height):
-        """
-        렌더러를 초기화합니다.
-        
-        Parameters:
-            screen_width, screen_height (int): 화면 해상도
-        """
+    def __init__(self, screen_width, screen_height, hud_height=80):
         self.width = screen_width
-        self.height = screen_height
-        self.half_height = screen_height // 2
+        self.total_height = screen_height
+        self.hud_height = hud_height
+        self.game_height = screen_height - hud_height
+        self.half_height = self.game_height // 2
         
-        # 색상 정의
-        self.ceiling_color = (50, 50, 50)
-        self.floor_color = (100, 100, 100)
+        # 색상 (더 풍부한 톤)
+        self.ceiling_color = (30, 25, 35)    # 어두운 보라
+        self.floor_color = (45, 40, 35)      # 어두운 갈색
         
-        # 벽 타입별 색상 (B팀 맵의 wall_type에 따라)
+        # 벽 색상 (더 선명)
         self.wall_colors = {
-            1: (200, 200, 200),  # 기본 벽
-            2: (150, 150, 200),  # 파란 벽
-            3: (200, 150, 150),  # 붉은 벽
+            1: (180, 140, 120),  # 따뜻한 돌벽
+            2: (120, 120, 160),  # 푸른 벽
+            3: (160, 100, 100),  # 붉은 벽
         }
+        
+        # ━━━ 부드러운 렌더링 ━━━
+        self.fog_distance = 20.0      # 안개 거리
+        self.min_brightness = 0.15    # 최소 밝기
     
     def render_frame(self, screen, rays, enemies=None, projectiles=None):
-        """
-        한 프레임을 렌더링합니다.
+        """3D 화면 렌더링"""
+        # 천장과 바닥 (그라디언트 효과)
+        self._render_floor_ceiling(screen)
         
-        Parameters:
-            screen: Pygame 화면 객체
-            rays (list): RayCaster.cast_rays() 결과
-            enemies (list): B팀 Enemy 객체 리스트 (옵션)
-            projectiles (list): B팀 Projectile 객체 리스트 (옵션)
-        """
-        # 1. 천장과 바닥 그리기
-        screen.fill(self.ceiling_color, (0, 0, self.width, self.half_height))
-        screen.fill(self.floor_color, (0, self.half_height, self.width, self.half_height))
-        
-        # 2. 벽 렌더링
+        # 벽 렌더링
         num_rays = len(rays)
         column_width = self.width / num_rays
         
         for i, ray in enumerate(rays):
             self._render_wall_slice(screen, i, column_width, ray)
+    
+    def _render_floor_ceiling(self, screen):
+        """천장/바닥 그라디언트"""
+        # 천장
+        for y in range(self.half_height):
+            ratio = y / self.half_height
+            color = tuple(int(c * (0.5 + ratio * 0.5)) for c in self.ceiling_color)
+            pygame.draw.line(screen, color, (0, y), (self.width, y))
         
-        # 3. 적 렌더링 (옵션, 나중에 구현)
-        # TODO: 적과 투사체는 추후 스프라이트 렌더링으로 추가
+        # 바닥
+        for y in range(self.half_height, self.game_height):
+            ratio = (y - self.half_height) / self.half_height
+            color = tuple(int(c * (1.0 - ratio * 0.3)) for c in self.floor_color)
+            pygame.draw.line(screen, color, (0, y), (self.width, y))
     
     def _render_wall_slice(self, screen, column_idx, column_width, ray):
-        """
-        한 개의 수직 벽 슬라이스를 렌더링합니다.
-        
-        Parameters:
-            screen: Pygame 화면
-            column_idx (int): 열 인덱스
-            column_width (float): 한 열의 가로 폭
-            ray (dict): 광선 정보
-        """
+        """벽 한 줄 그리기 (부드러운 음영)"""
         distance = ray['distance']
         wall_type = ray['wall_type']
         side = ray['side']
         
         if wall_type == 0:
-            return  # 벽이 없으면 그리지 않음
+            return
         
-        # 벽 높이 계산 (거리에 반비례)
-        wall_height = int(self.height / distance)
+        # 벽 높이 계산
+        wall_height = int(self.game_height / (distance + 0.0001))
         
-        # 벽의 그리기 시작/끝 위치
         draw_start = max(0, self.half_height - wall_height // 2)
-        draw_end = min(self.height, self.half_height + wall_height // 2)
+        draw_end = min(self.game_height, self.half_height + wall_height // 2)
         
-        # 색상 선택
-        base_color = self.wall_colors.get(wall_type, (200, 200, 200))
+        # 기본 색상
+        base_color = self.wall_colors.get(wall_type, (180, 140, 120))
         
-        # 면에 따라 명암 적용 (동서벽을 더 어둡게)
+        # 면별 명암 (EW 벽 더 어둡게)
         if side == 'EW':
-            color = tuple(int(c * 0.7) for c in base_color)
+            color = tuple(int(c * 0.75) for c in base_color)
         else:
             color = base_color
         
-        # 거리에 따른 어두워짐 효과 (옵션)
-        fog_factor = max(0.3, 1.0 - distance / 15.0)
+        # ━━━ 부드러운 거리 기반 밝기 ━━━
+        fog_factor = 1.0 - min(distance / self.fog_distance, 1.0)
+        fog_factor = max(fog_factor, self.min_brightness)
+        
+        # 비선형 감쇠 (더 자연스러움)
+        fog_factor = fog_factor ** 0.7
+        
         color = tuple(int(c * fog_factor) for c in color)
         
-        # 벽 슬라이스 그리기
+        # 그리기 (안티앨리어싱 효과)
         x = int(column_idx * column_width)
-        width = max(1, int(column_width + 1))  # 틈새 방지
+        width = max(1, int(column_width + 1))
         
+        # 벽 메인
         pygame.draw.rect(
             screen,
             color,
             (x, draw_start, width, draw_end - draw_start)
         )
+        
+        # ━━━ 부드러운 테두리 효과 (옵션) ━━━
+        if width > 1 and distance < 5:
+            edge_color = tuple(min(255, int(c * 1.1)) for c in color)
+            pygame.draw.line(screen, edge_color, (x, draw_start), (x, draw_end), 1)
