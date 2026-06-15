@@ -85,7 +85,7 @@ class SoundEngine:
         return snd
 
     def _build_sounds(self):
-        if not pygame.mixer.get.init():
+        if not pygame.mixer.get_init():
               return
         # 총소리: 짧은 노이즈 + 낮은 사인
         self._cache["shoot"]   = self._noise_burst(80,  0.7)
