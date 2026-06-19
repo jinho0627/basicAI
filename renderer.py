@@ -100,6 +100,80 @@ class Renderer:
             pygame.draw.circle(surf_proj, color, (16, 16), r)
         pygame.draw.circle(surf_proj, (255, 255, 255), (16, 16), 4)
         self.sprite_textures['proj'] = surf_proj
+
+        # 5. 교수님 적 (화난 교수님)
+        surf_p = pygame.Surface((128, 128), pygame.SRCALPHA)
+        # 그림자
+        pygame.draw.ellipse(surf_p, (0, 0, 0, 120), (10, 112, 108, 16))
+        
+        # 1) 머리/몸통 (회색 정장 차림)
+        # 정장 몸통
+        pygame.draw.polygon(surf_p, (50, 50, 60), [(24, 115), (104, 115), (84, 75), (44, 75)])
+        # 와이셔츠
+        pygame.draw.polygon(surf_p, (240, 240, 240), [(48, 75), (80, 75), (64, 95)])
+        # 빨간 넥타이
+        pygame.draw.polygon(surf_p, (200, 20, 20), [(61, 90), (67, 90), (69, 112), (64, 115), (59, 112)])
+        
+        # 2) 화가 나 얼굴 (빨개진 얼굴 - 그라데이션)
+        for r in range(45, 0, -4):
+            color = (255, max(0, 180 - r * 3), max(0, 160 - r * 3))
+            pygame.draw.circle(surf_p, color, (64, 50), r)
+            
+        # 3) 머리카락 (대머리 스타일 - 옆머리만 회색으로 풍성)
+        # 왼편 옆머리
+        pygame.draw.ellipse(surf_p, (100, 100, 100), (12, 40, 24, 35))
+        pygame.draw.ellipse(surf_p, (180, 180, 180), (14, 45, 18, 25))
+        # 오른편 옆머리
+        pygame.draw.ellipse(surf_p, (100, 100, 100), (92, 40, 24, 35))
+        pygame.draw.ellipse(surf_p, (180, 180, 180), (96, 45, 18, 25))
+        
+        # 4) 성난 눈썹과 안경, 불타는 눈
+        # 안경테 (검정)
+        pygame.draw.rect(surf_p, (30, 30, 30), (32, 40, 26, 18), 3) # 왼쪽 안경알
+        pygame.draw.rect(surf_p, (30, 30, 30), (70, 40, 26, 18), 3) # 오른쪽 안경알
+        pygame.draw.line(surf_p, (30, 30, 30), (58, 48), (70, 48), 3) # 안경 브릿지
+        
+        # 화난 눈 (안경알 안쪽에 불타는 노란색/빨간색 눈동자)
+        pygame.draw.circle(surf_p, (255, 255, 0), (45, 49), 6)
+        pygame.draw.circle(surf_p, (255, 0, 0), (45, 49), 2)
+        pygame.draw.circle(surf_p, (255, 255, 0), (83, 49), 6)
+        pygame.draw.circle(surf_p, (255, 0, 0), (83, 49), 2)
+        
+        # 성난 눈썹 (V자 모양으로 매우 화남)
+        pygame.draw.line(surf_p, (0, 0, 0), (28, 32), (54, 42), 5)
+        pygame.draw.line(surf_p, (0, 0, 0), (100, 32), (74, 42), 5)
+        
+        # 5) 크게 벌리고 소리치는 입
+        pygame.draw.ellipse(surf_p, (20, 20, 20), (50, 68, 28, 20))
+        # 뾰족한 이빨 (위에 두 개, 아래 두 개)
+        pygame.draw.polygon(surf_p, (255, 255, 255), [(54, 68), (58, 74), (62, 68)])
+        pygame.draw.polygon(surf_p, (255, 255, 255), [(74, 68), (70, 74), (66, 68)])
+        
+        # 6) 이마에 힘줄 (화난 혈관 마크)
+        pygame.draw.line(surf_p, (180, 0, 0), (58, 22), (64, 26), 2)
+        pygame.draw.line(surf_p, (180, 0, 0), (64, 26), (62, 32), 2)
+        pygame.draw.line(surf_p, (180, 0, 0), (64, 26), (70, 24), 2)
+        
+        # P 텍스트 블릿
+        text_p = font.render("P", True, (255, 0, 0))
+        surf_p.blit(text_p, (64 - text_p.get_width() // 2, 50 - text_p.get_height() // 2))
+        self.sprite_textures['P'] = surf_p
+
+        # 6. 교수님의 F학점 투사체 (빨간색 F가 적힌 시험지)
+        surf_proj_p = pygame.Surface((48, 48), pygame.SRCALPHA)
+        # 흰색 종이 그리기
+        pygame.draw.rect(surf_proj_p, (255, 255, 255), (6, 6, 36, 36))
+        # 빨간색 테두리
+        pygame.draw.rect(surf_proj_p, (200, 20, 20), (6, 6, 36, 36), 2)
+        # 종이 안의 글씨 줄들 (회색 선들)
+        pygame.draw.line(surf_proj_p, (150, 150, 150), (12, 14), (36, 14), 2)
+        pygame.draw.line(surf_proj_p, (150, 150, 150), (12, 22), (28, 22), 2)
+        pygame.draw.line(surf_proj_p, (150, 150, 150), (12, 30), (32, 30), 2)
+        # 오른쪽 위에 커다란 F 학점 도장
+        font_proj = pygame.font.SysFont("Courier New", 20, bold=True)
+        text_f = font_proj.render("F", True, (255, 0, 0))
+        surf_proj_p.blit(text_f, (28, 12))
+        self.sprite_textures['proj_p'] = surf_proj_p
     
     def render_frame(self, screen, rays, player_x, player_y, player_angle, enemies=None, projectiles=None):
         """3D 화면 및 스프라이트(적, 투사체) 렌더링"""
@@ -143,7 +217,7 @@ class Renderer:
                     'x': proj.x,
                     'y': proj.y,
                     'dist': dist,
-                    'type': 'proj',
+                    'type': getattr(proj, 'type', 'proj'),
                 })
                 
         # 3. 원근 정렬 (거리가 먼 순으로 정렬 - Painter's Algorithm)
@@ -183,9 +257,10 @@ class Renderer:
             sprite_width = sprite_height
             
             # 투사체는 몬스터보다 작게 축소
-            if sprite['type'] == 'proj':
-                sprite_width = int(sprite_width * 0.25)
-                sprite_height = int(sprite_height * 0.25)
+            if sprite['type'] in ('proj', 'proj_p'):
+                scale_factor = 0.38 if sprite['type'] == 'proj_p' else 0.25
+                sprite_width = int(sprite_width * scale_factor)
+                sprite_height = int(sprite_height * scale_factor)
                 
             if sprite_height <= 0 or sprite_width <= 0:
                 continue

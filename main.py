@@ -187,7 +187,7 @@ class GameEngine:
                 score_gained = enemy.take_damage(damage)
                 
                 if score_gained > 0:  # 적 사망
-                    grade_type = "boss" if enemy.grade == 'F' else "normal"
+                    grade_type = "boss" if enemy.grade in ('F', 'P') else "normal"
                     self.game_systems.score.on_kill(grade_type)
                 
                 break  # 한 발에 하나만

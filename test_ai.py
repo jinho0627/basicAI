@@ -121,6 +121,7 @@ class TestEnemySpecs(unittest.TestCase):
         c_enemy = Enemy(5.0, 5.0, grade='C')
         d_enemy = Enemy(5.0, 5.0, grade='D')
         f_enemy = Enemy(5.0, 5.0, grade='F')
+        p_enemy = Enemy(5.0, 5.0, grade='P')
 
         # F학점은 C학점의 체력 2배, 공격력 2배
         self.assertEqual(f_enemy.max_hp, c_enemy.max_hp * 2)
@@ -129,12 +130,18 @@ class TestEnemySpecs(unittest.TestCase):
         # D학점은 C학점과 동일 체력
         self.assertEqual(d_enemy.max_hp, c_enemy.max_hp)
 
+        # P학점(교수님)은 최강 체력과 공격력
+        self.assertEqual(p_enemy.max_hp, 300)
+        self.assertEqual(p_enemy.damage, 30)
+
         # D학점은 근접 공격 범위 없음 (0.0)
         self.assertEqual(d_enemy.attack_range, 0.0)
         self.assertGreater(c_enemy.attack_range, 0.0)
         self.assertGreater(f_enemy.attack_range, 0.0)
+        self.assertGreater(p_enemy.attack_range, 0.0)
 
-        # 처치 점수: F=300, D=200, C=100
+        # 처치 점수: P=500, F=300, D=200, C=100
+        self.assertEqual(p_enemy.kill_score, 500)
         self.assertEqual(f_enemy.kill_score, 300)
         self.assertEqual(d_enemy.kill_score, 200)
         self.assertEqual(c_enemy.kill_score, 100)
@@ -227,8 +234,9 @@ class TestDifficultyScaling(unittest.TestCase):
             em.spawn_enemies(self.game_map)
             self.assertEqual(len(em.enemies), 5)
             grades = [e.grade for e in em.enemies]
+            self.assertEqual(grades.count('P'), 1)
             self.assertEqual(grades.count('F'), 1)
-            self.assertEqual(grades.count('D'), 2)
+            self.assertEqual(grades.count('D'), 1)
             self.assertEqual(grades.count('C'), 2)
 
         # 2. 보통 / 보통 (10마리)
@@ -237,8 +245,9 @@ class TestDifficultyScaling(unittest.TestCase):
             em.spawn_enemies(self.game_map)
             self.assertEqual(len(em.enemies), 10)
             grades = [e.grade for e in em.enemies]
+            self.assertEqual(grades.count('P'), 1)
             self.assertEqual(grades.count('F'), 2)
-            self.assertEqual(grades.count('D'), 4)
+            self.assertEqual(grades.count('D'), 3)
             self.assertEqual(grades.count('C'), 4)
 
         # 3. 어려움 / 어려움 (15마리)
@@ -247,9 +256,10 @@ class TestDifficultyScaling(unittest.TestCase):
             em.spawn_enemies(self.game_map)
             self.assertEqual(len(em.enemies), 15)
             grades = [e.grade for e in em.enemies]
+            self.assertEqual(grades.count('P'), 2)
             self.assertEqual(grades.count('F'), 3)
-            self.assertEqual(grades.count('D'), 6)
-            self.assertEqual(grades.count('C'), 6)
+            self.assertEqual(grades.count('D'), 5)
+            self.assertEqual(grades.count('C'), 5)
 
 
 if __name__ == '__main__':

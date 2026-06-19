@@ -28,18 +28,20 @@ class EnemyState(Enum):
 
 # ─── 학점별 기본 스펙 테이블 ──────────────────────────────────────────────────
 # C학점을 기준(base)으로 F학점은 체력·공격력 2배
+# P학점(교수님)은 최강 보스로서 체력·공격력이 매우 높지만 속도가 느림
 GRADE_SPECS = {
     'C': {'hp': 70,  'speed': 1.1, 'damage': 8,  'attack_range': 1.2, 'detection_range': 8.0, 'score': 100},
     'D': {'hp': 70,  'speed': 1.1, 'damage': 8,  'attack_range': 0.0, 'detection_range': 8.0, 'score': 200},  # 근접 공격 없음
     'F': {'hp': 140, 'speed': 1.4, 'damage': 16, 'attack_range': 1.2, 'detection_range': 8.0, 'score': 300},
+    'P': {'hp': 300, 'speed': 0.5, 'damage': 30, 'attack_range': 1.5, 'detection_range': 12.0, 'score': 500},
 }
 
 
 class Projectile:
-    """D학점 적이 발사하는 원거리 공기포 투사체"""
+    """D학점 및 P학점 적이 발사하는 원거리 투사체"""
     RADIUS = 0.15  # 플레이어 충돌 판정 반지름
 
-    def __init__(self, x, y, vx, vy, damage=8):
+    def __init__(self, x, y, vx, vy, damage=8, type='proj'):
         self.x = x
         self.y = y
         self.vx = vx   # 정규화된 방향 벡터
@@ -48,6 +50,7 @@ class Projectile:
         self.damage = damage
         self.alive = True
         self.lifetime = 5.0  # 5초 후 자동 소멸
+        self.type = type
 
     def update(self, grid_map, dt):
         """투사체를 한 프레임 전진시키고 벽 충돌을 검사합니다."""
@@ -107,10 +110,10 @@ class Enemy:
         self.attack_rate = 1.0  # 1초에 1번 공격 가능
         self.pending_damage = 0  # 대기 중인 근접 피해량
 
-        # D학점 원거리(공기포) 공격 관련
+        # D학점 및 P학점 원거리 공격 관련
         self.shoot_cooldown = 0.0
-        self.shoot_rate = 2.5     # 2.5초마다 1발 발사
-        self.ranged_range = 6.0   # 이 거리 이내이면 공기포 발사
+        self.shoot_rate = 3.0 if self.grade == 'P' else 2.5     # 2.5초 / 3.0초 마다 1발 발사
+        self.ranged_range = 8.0 if self.grade == 'P' else 6.0   # 이 거리 이내이면 원거리 공격 발사
         self.pending_projectiles = []  # 이번 프레임에 생성할 투사체 대기열
 
         # 순찰 및 경로 탐색 관련
@@ -164,7 +167,7 @@ class Enemy:
             else:
                 self.state = EnemyState.PATROL
         else:
-            # F, C 학점: 근접 공격 가능
+            # F, C, P 학점: 근접 공격 가능
             if dist_to_player <= self.attack_range:
                 self.state = EnemyState.ATTACK
             elif dist_to_player <= self.detection_range:
@@ -184,16 +187,18 @@ class Enemy:
         if self.attack_cooldown > 0:
             self.attack_cooldown -= dt
 
-        # 4. D학점 원거리 공기포 발사 (CHASE 상태에서 사거리 내에 있을 때)
-        if self.grade == 'D' and self.state == EnemyState.CHASE:
+        # 4. D/P학점 원거리 공격 발사 (CHASE 상태에서 사거리 내에 있을 때)
+        if self.grade in ('D', 'P') and self.state == EnemyState.CHASE:
             self.shoot_cooldown = max(0.0, self.shoot_cooldown - dt)
             if self.shoot_cooldown <= 0 and dist_to_player <= self.ranged_range:
                 self.shoot_cooldown = self.shoot_rate
                 safe_dist = max(dist_to_player, 0.01)
+                proj_type = 'proj_p' if self.grade == 'P' else 'proj'
                 proj = Projectile(
                     self.x, self.y,
                     dx / safe_dist, dy / safe_dist,
-                    damage=self.damage
+                    damage=self.damage,
+                    type=proj_type
                 )
                 self.pending_projectiles.append(proj)
 
@@ -347,13 +352,21 @@ class EnemyManager:
         # 맵에서 난이도에 해당하는 개수만큼의 스폰 포인트를 동적으로 생성합니다.
         spawns = map_obj.generate_enemy_spawns(num=spawn_count, min_dist=5)
 
-        # F, D, C 학점 순으로 스펙에 맞게 배분 (F는 약 20%의 가장 적은 비율을 차지하도록 설정)
-        f_count = max(1, spawn_count // 5)
-        rem = spawn_count - f_count
-        d_count = rem // 2
-        c_count = rem - d_count
-
-        grades = ['F'] * f_count + ['D'] * d_count + ['C'] * c_count
+        # P, F, D, C 학점 순으로 배분 (P는 가장 적은 비율로 드물게 소환되는 정예/교수님 몬스터)
+        if spawn_count == 5:
+            grades = ['P'] * 1 + ['F'] * 1 + ['D'] * 1 + ['C'] * 2
+        elif spawn_count == 10:
+            grades = ['P'] * 1 + ['F'] * 2 + ['D'] * 3 + ['C'] * 4
+        elif spawn_count == 15:
+            grades = ['P'] * 2 + ['F'] * 3 + ['D'] * 5 + ['C'] * 5
+        else:
+            # 동적 스폰 수량 대응을 위한 기본 폴백 로직
+            p_count = max(1, spawn_count // 10)
+            f_count = max(1, (spawn_count - p_count) // 5)
+            rem = spawn_count - p_count - f_count
+            d_count = rem // 2
+            c_count = rem - d_count
+            grades = ['P'] * p_count + ['F'] * f_count + ['D'] * d_count + ['C'] * c_count
 
         for idx, (spawn_x, spawn_y) in enumerate(spawns):
             grade = grades[idx % len(grades)]
