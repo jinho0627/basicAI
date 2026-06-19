@@ -6,10 +6,13 @@
 임주형 : UI 및 게임 시스템 담당  
 각자 담장 작업에 맞추어 작업 & 수정을 했다.
 
-<img width="296" height="184" alt="Boogi-Man 2026-06-15 23-09-37" src="https://github.com/user-attachments/assets/ac02d898-1e88-4061-976f-eca7ea1a48a2" />
+<img width="400" height="263" alt="9조_시연영상" src="https://github.com/user-attachments/assets/f19a6aec-e9ce-4cc6-87f4-03f42cbcaed2" />
 
 
-https://github.com/user-attachments/assets/c8a2028e-ef80-4cb9-b50b-0cbf7b127de4
+
+
+
+
 
 
 
