@@ -50,6 +50,12 @@ class Map:
         # 적 스폰: 플레이어로부터 충분히 떨어진 5개 위치
         self.enemy_spawns = self._place_enemy_spawns(open_cells, num=5, min_dist=5)
 
+        # 4. 특수 요소 배치 (비밀의 방, 자동문, 독 함정)
+        self.doors = {}
+        self.traps = []
+        self.items = []
+        self._place_special_elements()
+
     # ─── 미로 생성 (재귀 백트래킹 / DFS) ─────────────────────────────────────
     def _generate_maze(self):
         """
@@ -243,3 +249,191 @@ class Map:
                 print(line)
             except UnicodeEncodeError:
                 print(line.replace("██", "##"))
+
+    def _place_special_elements(self):
+        # 1. 비밀의 방 및 비밀문 배치 (막다른 길 중 플레이어/적 스폰 위치가 아닌 곳을 밀폐)
+        secret_candidates = []
+        p_cell = (int(self.player_spawn[0]), int(self.player_spawn[1]))
+        e_cells = [(int(ex), int(ey)) for ex, ey in self.enemy_spawns]
+        
+        for r in range(1, self.rows - 1):
+            for c in range(1, self.cols - 1):
+                if self.grid[r][c] == 0:
+                    # 막다른 길인지 체크 (이웃한 0 셀이 정확히 1개인 경우)
+                    corridor_neighbors = []
+                    for dc, dr in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                        tc, tr = c + dc, r + dr
+                        if not self.is_out_of_bounds(tc, tr) and self.grid[tr][tc] == 0:
+                            corridor_neighbors.append((tc, tr))
+                    
+                    if len(corridor_neighbors) == 1:
+                        room_pos = (c, r)
+                        door_pos = corridor_neighbors[0]
+                        # 스폰 셀 제외
+                        if room_pos != p_cell and room_pos not in e_cells:
+                            if door_pos != p_cell and door_pos not in e_cells:
+                                secret_candidates.append((room_pos, door_pos))
+        
+        # 중복 방지를 위해 셔플 후 최대 3개 배치
+        random.shuffle(secret_candidates)
+        placed_secrets = 0
+        for room_pos, door_pos in secret_candidates:
+            if placed_secrets >= 3:
+                break
+            rc, rr = room_pos
+            dc, dr = door_pos
+            
+            # 문이 될 위치가 다른 문이나 벽으로 막히지 않았는지 확인
+            if self.grid[dr][dc] == 0:
+                self.grid[dr][dc] = 5  # 비밀문 (닫힘)
+                
+                # 비밀의 방에 아이템 생성 (A+ 또는 학식 중 하나만!)
+                item_type = random.choice(['A+', 'H'])
+                self.items.append({
+                    'x': rc + 0.5,
+                    'y': rr + 0.5,
+                    'type': item_type
+                })
+                
+                # 문 정보 등록
+                self.doors[door_pos] = {
+                    'type': 'secret',
+                    'state': 'closed',
+                    'timer': 0.0,
+                    'base_type': 5,
+                    'progress': 0.0
+                }
+                placed_secrets += 1
+
+        # 2. 자동문 배치
+        door_candidates = []
+        for r in range(2, self.rows - 2):
+            for c in range(2, self.cols - 2):
+                if self.grid[r][c] == 0:
+                    # 플레이어/적 스폰 근처 피하기
+                    if (c + 0.5, r + 0.5) == self.player_spawn or (c + 0.5, r + 0.5) in self.enemy_spawns:
+                        continue
+                    
+                    # 통로인지 체크
+                    is_passage = False
+                    if (self.grid[r][c-1] == 1 and self.grid[r][c+1] == 1 and 
+                        self.grid[r-1][c] == 0 and self.grid[r+1][c] == 0):
+                        is_passage = True
+                    elif (self.grid[r-1][c] == 1 and self.grid[r+1][c] == 1 and 
+                          self.grid[r][c-1] == 0 and self.grid[r][c+1] == 0):
+                        is_passage = True
+                        
+                    if is_passage:
+                        door_candidates.append((c, r))
+
+        random.shuffle(door_candidates)
+        placed_doors = 0
+        for c, r in door_candidates:
+            if placed_doors >= 4:
+                break
+            # 문 정보 등록 및 그리드에 자동문(4) 마킹
+            self.grid[r][c] = 4
+            self.doors[(c, r)] = {
+                'type': 'auto',
+                'state': 'closed',
+                'timer': 0.0,
+                'base_type': 4,
+                'progress': 0.0
+            }
+            placed_doors += 1
+
+        # 3. 독 함정 배치
+        trap_candidates = []
+        for r in range(1, self.rows - 1):
+            for c in range(1, self.cols - 1):
+                if self.grid[r][c] == 0:
+                    # 스폰 위치나 아이템 위치 피하기
+                    pos = (c + 0.5, r + 0.5)
+                    if pos == self.player_spawn or pos in self.enemy_spawns:
+                        continue
+                    if any(item['x'] == pos[0] and item['y'] == pos[1] for item in self.items):
+                        continue
+                    if (c, r) in self.doors:
+                        continue
+                    
+                    # 이웃한 0 셀 개수 검사 (막다른 길이나 외길인지 확인)
+                    corridor_neighbors = 0
+                    for dc, dr in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                        tc, tr = c + dc, r + dr
+                        if not self.is_out_of_bounds(tc, tr) and self.grid[tr][tc] == 0:
+                            corridor_neighbors += 1
+                    # 길이 하나밖에 없는 곳 (dead-end, corridor_neighbors <= 1) 제외
+                    if corridor_neighbors <= 1:
+                        continue
+                        
+                    trap_candidates.append(pos)
+
+        random.shuffle(trap_candidates)
+        for i in range(min(len(trap_candidates), 3)):  # 최대 3개 배치
+            self.traps.append({
+                'x': trap_candidates[i][0],
+                'y': trap_candidates[i][1]
+            })
+
+    def update_doors(self, player_pos, enemy_manager, dt):
+        """
+        자동문과 비밀문의 개폐 상태를 업데이트합니다.
+        """
+        px, py = player_pos
+        
+        # 살아있는 적들의 위치 수집
+        enemy_positions = []
+        if enemy_manager:
+            enemy_positions = [(e.x, e.y) for e in enemy_manager.get_active_enemies()]
+            
+        for (c, r), door in self.doors.items():
+            door_x = c + 0.5
+            door_y = r + 0.5
+            
+            # 플레이어와의 거리
+            dist_to_player = ((door_x - px)**2 + (door_y - py)**2)**0.5
+            
+            # 적들과의 최소 거리
+            dist_to_enemy = float('inf')
+            for ex, ey in enemy_positions:
+                d = ((door_x - ex)**2 + (door_y - ey)**2)**0.5
+                if d < dist_to_enemy:
+                    dist_to_enemy = d
+                    
+            if door['type'] == 'auto':
+                # 자동문: 플레이어 또는 적이 사거리(1.5) 이내면 열림
+                if dist_to_player < 1.5 or dist_to_enemy < 1.5:
+                    if door['state'] == 'closed':
+                        door['state'] = 'opening'
+                        door['progress'] = 0.0
+                    elif door['state'] == 'opening':
+                        door['progress'] = min(1.0, door['progress'] + dt * 1.5)  # 약 0.67초 동안 열림
+                        if door['progress'] >= 1.0:
+                            door['state'] = 'open'
+                            self.grid[r][c] = 0  # 통과 가능
+                    elif door['state'] == 'open':
+                        door['timer'] = 2.0  # 2초 동안 개방 유지
+                else:
+                    if door['state'] == 'open':
+                        door['timer'] -= dt
+                        if door['timer'] <= 0:
+                            door['state'] = 'closed'
+                            self.grid[r][c] = 4  # 다시 닫힘
+                            door['progress'] = 0.0
+                    elif door['state'] == 'opening':
+                        # 문이 열리다 플레이어가 벗어나면 리셋
+                        door['state'] = 'closed'
+                        door['progress'] = 0.0
+                            
+            elif door['type'] == 'secret':
+                # 비밀문: 플레이어가 아주 가까이(1.5 이내) 붙어야 열림
+                if dist_to_player < 1.5:
+                    if door['state'] == 'closed':
+                        door['state'] = 'opening'
+                        door['progress'] = 0.0
+                        print("[SECRET] Secret Room Discovered! Door is opening...")
+                    elif door['state'] == 'opening':
+                        door['progress'] = min(1.0, door['progress'] + dt * 1.5)  # 약 0.67초 동안 열림
+                        if door['progress'] >= 1.0:
+                            door['state'] = 'open'
+                            self.grid[r][c] = 0  # 통과 가능

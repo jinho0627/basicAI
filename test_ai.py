@@ -6,6 +6,17 @@ B팀 검증용: 유닛 테스트
 """
 
 import unittest
+import sys
+import io
+
+# 한글 깨짐 방지를 위해 표준 출력 인코딩을 UTF-8로 설정
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 from map import Map
 from pathfinding import a_star
 from enemy import EnemyManager, EnemyState, Enemy, Projectile, GRADE_SPECS
@@ -131,7 +142,7 @@ class TestEnemySpecs(unittest.TestCase):
         self.assertEqual(d_enemy.max_hp, c_enemy.max_hp)
 
         # P학점(교수님)은 최강 체력과 공격력
-        self.assertEqual(p_enemy.max_hp, 300)
+        self.assertEqual(p_enemy.max_hp, 400)
         self.assertEqual(p_enemy.damage, 30)
 
         # D학점은 근접 공격 범위 없음 (0.0)
@@ -260,6 +271,120 @@ class TestDifficultyScaling(unittest.TestCase):
             self.assertEqual(grades.count('F'), 3)
             self.assertEqual(grades.count('D'), 5)
             self.assertEqual(grades.count('C'), 5)
+
+
+class TestSpecialElements(unittest.TestCase):
+    """독 함정, 자동문, 비밀문, 아이템 관련 테스트"""
+
+    def setUp(self):
+        self.game_map = Map(seed=42)
+
+    def test_doors_generation(self):
+        """맵 생성 시 자동문과 비밀문이 정상적으로 배치되는지 검증"""
+        self.assertGreater(len(self.game_map.doors), 0)
+        # 자동문(4) 또는 비밀문(5)이 맵에 존재해야 함
+        door_types = [d['type'] for d in self.game_map.doors.values()]
+        self.assertIn('auto', door_types)
+        self.assertIn('secret', door_types)
+
+    def test_doors_auto_proximity(self):
+        """자동문이 플레이어나 적이 가까이 갈 때 열리고 멀어지면 닫히는지 검증"""
+        # 자동문 하나 선택
+        door_pos = None
+        for (c, r), door in self.game_map.doors.items():
+            if door['type'] == 'auto':
+                door_pos = (c, r)
+                break
+        
+        self.assertIsNotNone(door_pos)
+        c, r = door_pos
+        door_x, door_y = c + 0.5, r + 0.5
+        
+        # 닫힌 상태인지 검증 (grid 가 4)
+        self.assertEqual(self.game_map.grid[r][c], 4)
+        self.assertEqual(self.game_map.doors[door_pos]['state'], 'closed')
+        
+        # 플레이어가 근처(1.8)로 다가감 - 1.5보다 크므로 닫힌 상태 유지
+        self.game_map.update_doors((door_x + 1.8, door_y), None, 0.016)
+        self.assertEqual(self.game_map.doors[door_pos]['state'], 'closed')
+        self.assertEqual(self.game_map.grid[r][c], 4)
+        
+        # 플레이어가 더 가까이(1.2)로 다가감 - 열려야 함 (1초 경과하여 완전 개방)
+        self.game_map.update_doors((door_x + 1.2, door_y), None, 0.016)
+        self.game_map.update_doors((door_x + 1.2, door_y), None, 1.0)
+        self.assertEqual(self.game_map.doors[door_pos]['state'], 'open')
+        self.assertEqual(self.game_map.grid[r][c], 0)  # 통로로 뚫림
+        
+        # 플레이어가 멀어짐 (거리 5.0)
+        self.game_map.update_doors((door_x + 5.0, door_y), None, 3.0)  # 3초 업데이트
+        self.assertEqual(self.game_map.doors[door_pos]['state'], 'closed')
+        self.assertEqual(self.game_map.grid[r][c], 4)  # 다시 닫힘
+
+    def test_doors_secret_proximity(self):
+        """비밀문이 벽에 바짝 다가갔을 때만 열리는지 검증"""
+        # 비밀문 하나 선택
+        door_pos = None
+        for (c, r), door in self.game_map.doors.items():
+            if door['type'] == 'secret':
+                door_pos = (c, r)
+                break
+        
+        self.assertIsNotNone(door_pos)
+        c, r = door_pos
+        door_x, door_y = c + 0.5, r + 0.5
+        
+        # 적당한 거리(2.0)에서는 안 열림
+        self.game_map.update_doors((door_x + 2.0, door_y), None, 0.016)
+        self.assertEqual(self.game_map.doors[door_pos]['state'], 'closed')
+        self.assertEqual(self.game_map.grid[r][c], 5)
+        
+        # 아주 가까운 거리(1.0)에서는 열림 (1초 경과하여 완전 개방)
+        self.game_map.update_doors((door_x + 1.0, door_y), None, 0.016)
+        self.game_map.update_doors((door_x + 1.0, door_y), None, 1.0)
+        self.assertEqual(self.game_map.doors[door_pos]['state'], 'open')
+        self.assertEqual(self.game_map.grid[r][c], 0)
+
+    def test_secret_rooms_items(self):
+        """비밀의 방에 아이템이 올바르게 하나만 들어가며, 서로 겹치지 않는지 검증"""
+        # 비밀문 하나당 비밀의 방 바닥 셀을 추적하여 아이템이 정확히 1개 매칭되는지 확인
+        self.assertGreater(len(self.game_map.items), 0)
+        for item in self.game_map.items:
+            self.assertIn(item['type'], ['A+', 'H'])
+            
+        # 비밀문과 비밀의 방은 1:1 관계이며, 방 바닥 셀(0.5 오프셋)에 아이템이 위치
+        for (c, r), door in self.game_map.doors.items():
+            if door['type'] == 'secret':
+                # 비밀의 방 위치 찾기
+                room_found = False
+                for dc, dr in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                    tc, tr = c + dc, r + dr
+                    # 비밀문 생성 로직상 반대쪽 방 좌표는 c - dc, r - dr
+                    rc, rr = c - dc, r - dr
+                    # 이 방에 스폰된 아이템 확인
+                    matching_items = [i for i in self.game_map.items if int(i['x']) == rc and int(i['y']) == rr]
+                    if len(matching_items) > 0:
+                        room_found = True
+                        self.assertEqual(len(matching_items), 1)  # 아이템은 정확히 하나
+                self.assertTrue(room_found)
+
+    def test_traps_no_dead_ends(self):
+        """독 함정이 막다른 길(이웃한 빈 셀 개수 <= 1)에 생성되지 않는지 검증"""
+        # 여러 맵 생성 시도하여 검사
+        for seed in range(10):
+            game_map = Map(seed=seed)
+            for trap in game_map.traps:
+                c = int(trap['x'])
+                r = int(trap['y'])
+                
+                # 이웃한 0 셀 개수 계산
+                corridor_neighbors = 0
+                for dc, dr in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                    tc, tr = c + dc, r + dr
+                    if not game_map.is_out_of_bounds(tc, tr) and game_map.grid[tr][tc] == 0:
+                        corridor_neighbors += 1
+                        
+                # 0 셀 개수가 반드시 2개 이상이어야 함
+                self.assertGreater(corridor_neighbors, 1, f"막다른 길 ({c}, {r})에 독 함정이 생성되었습니다. (이웃 개수: {corridor_neighbors})")
 
 
 if __name__ == '__main__':

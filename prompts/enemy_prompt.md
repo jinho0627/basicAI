@@ -1,51 +1,57 @@
-# 📝 enemy.py AI 프롬프트 기록장
+# 📝 enemy.py AI Prompt Log
 
-이 파일은 `enemy.py` 코드를 생성하거나 수정할 때 사용한 AI 프롬프트를 기록하는 공간입니다.
+This file is a log of AI prompts used when creating or modifying the `enemy.py` code.
 
-## 1. 역할 및 개발 목표 (Role & Objective)
-* 파이썬 기반의 3D FPS 게임(둠 클론)에서 적(Enemy) 캐릭터의 유한 상태 머신(FSM) 행동 패턴 정의
-* 원거리/근거리 공격 메커니즘 및 투사체(Projectile) 생성 구현
-* 학점별(F, D, C) 적의 기본 스펙 설정 및 난이도별 점수/체력 배율 조정
+## 1. Role & Objective
+* Define the Finite State Machine (FSM) behavioral patterns of enemy characters in a Python-based 3D FPS game (Doom clone).
+* Implement ranged/melee attack mechanisms and projectile creation.
+* Set base attributes for enemies based on grades (F, D, C) and adjust score/health multipliers per difficulty level.
 
-## 2. 사용한 프롬프트 (Prompts Used)
-### 버전 1 (최초 생성 및 학점별 스펙 설정)
+## 2. Prompts Used
+### Version 1 (Initial Creation & Grade-based Attributes)
 ```markdown
-파이썬으로 둠 이라는 게임을 만들건데 내가 B팀원 : 맵 및 적 AI 담당이거든
+I'm going to make a game called Doom in Python, and I'm Team B member: in charge of map and enemy AI.
 
-주요 업무
-적 생성 및 이동
-게임 난이도 조절
+Key tasks:
+- Enemy spawn and movement
+- Game difficulty adjustment
 
-GitHub 담당 파일 예시
+Example file in GitHub:
 enemy.py
 
-이것만 하면 되니까 나머지 관련 없는 파일은 다 없애고 정리해줘 그리고 적을 각각 f, d, c 학점 순으로 강하게 하고 f 학점은 체력이 c학점의 두배 공격력도 두배인 대신 적게 생성되게 해줘 d학점은 c학점과 똑같지만 근거리 공격 없이 총만 쏘게 해줘 잡았을 때 점수는 각각 300 200 100으로 하고 난이도에 따라서 점수와 적 체력 배율을 1, 1.5, 2로 해줘
-난이도를 쉬움 보통 어려움으로 바꾸고 각각 적이 5,10,15로 해줘
+Since I only need to do this, clean up and remove all other unrelated files. Make the enemies stronger in the order of F, D, and C grades. F grade should have double the health and double the attack power of C grade, but spawn in fewer numbers. D grade should have the same stats as C grade, but only shoot guns without melee attacks. The points for defeating them should be 300, 200, and 100 respectively. Set the health and score multipliers based on difficulty to 1, 1.5, and 2.
+Change the difficulty levels to Easy, Medium, and Hard, spawning 5, 10, and 15 enemies respectively.
 ```
 
-### 버전 2 (기능 보완, 렌더링 노이즈 수정 및 적 AI 개선)
+### Version 2 (Refinement, Rendering Noise Fix, and Enemy AI Improvement)
 ```markdown
-1. 적 이미지를 알파벳 F, D, C로 해서 각각 f,d,c학점이 공격 해오는거로 바꾸고 플레이해볼래
-2. 데모 게임할때 적이 내가 보는 시점에 따라서 오잖아 그냥 자연스럽게 오게 해줘 다른데를 보거나 멀리서 봐도 오는게 보이도록
-3. 아니 적이 오는 시점에서 내가 벽쪽을 쳐다보면 적이 벽안에 들어가서 안 보이잖아 그럼 잘못된거지 그니까 내가 보든 안 보든 적이 나처럼 길을 따라 오게 해서 내 시야에 자연스럽게 등장한것처럼 수정해줘 적의 감지 능력은 초기 그대로 하고
-4. 아니 적이 여전히 내 시야에서는 벽쪽을 볼때 벽으로 들어가버려 그니까 플레이어처럼 적이 벽을 따라 오고 그 모습이 내 시야에 담기게 해줘
-5. d 학점은 멀리서 공기포 같은 걸 쏘게 해줘
-6. 적이 여전히 벽을 볼때 시야에서 사라져서 벽으로 가 그냥 적을 하나의 블럭으로 보고 그 블럭의 모습을 렌더링할 순 없어? 그래서 벽에 들어가는게 보이지 않게
+1. Change the enemy images to the alphabets F, D, C and let's play the game with F, D, C grades attacking.
+2. In the demo game, the enemies only approach depending on the direction I look at. Make them approach naturally even if I look elsewhere or watch them from a distance.
+3. If I look at the wall when enemies approach, they clip inside the wall and disappear. That's wrong, so whether I look at them or not, make them follow the path just like the player so they appear naturally in my line of sight. Keep their original detection range as initially designed.
+4. The enemies still clip into the wall when I look towards the wall. Make them follow the wall paths just like the player so that they show up in my vision correctly.
+5. Make Grade D enemies fire air cannon-like projectiles from a distance.
+6. The enemies still disappear from sight into the walls. Can you treat enemies as a solid block and render them as such so they don't visually clip inside walls?
 ```
 
-### 버전 3 (근접 공격 피격 데미지 미반영 버그 수정)
+### Version 3 (Fix Bug where Melee Damage was not Applied)
 ```markdown
-게임 플레이 해보니까 d 말고 다른 적들이 공격하는게 체력에 바로바로 반영이 안되는거 같아
+While playing, it seems that attacks from enemies other than D are not being reflected in player health immediately.
 ```
 
-### 버전 4 (최강의 적 화난 교수님 추가)
+### Version 4 (Add Strongest Enemy: Angry Professor)
 ```markdown
-화난 교수님 모양의 적을 만들어줘 제일 쎄고 강한 대신 수가 느리고 적게 생성해줘
+Add an "Angry Professor" boss enemy. Make him the strongest and toughest, but slow and spawn in very low numbers.
 ```
 
-## 3. 피드백 및 조정 내용 (Feedback & Refinement)
-* **적 FSM 구현**: PATROL, CHASE, ATTACK, DEAD 상태 머신을 구축하고 A* 경로 탐색과 통합하여 벽 충돌 없이 플레이어를 추적하도록 조정.
-* **F학점 및 D학점의 차별화**: D학점은 근거리 공격 없이 원거리 투사체(공기포, Projectile)만 발사하고, F학점은 스폰 확률이 낮지만 체력과 공격력을 기본(C학점)의 2배로 부여함.
-* **시야 및 물리 버그 조치**: 플레이어가 고개를 돌렸을 때 적이 벽 너머에서 스폰되거나 벽 내부를 통과하는 렌더링/충돌 문제를 A* 경로 이동 정밀화로 극복.
-* **근접 공격 데미지 반영**: `D`학점 외의 적(`C`, `F`학점)이 플레이어에게 입히는 근접 데미지가 체력에 반영되지 않는 문제를 `Enemy` 내부의 `pending_damage` 변수 추가 및 `EnemyManager.check_melee_hits()` 신설을 통해 해결하고, `main.py`의 게임 루프에서 주기적으로 해당 데미지를 획득하여 체력에 실시간 반영함.
-* **화난 교수님(P학점) 추가**: 최강의 스펙(HP 300, 공격력 30)을 가졌으나 기동력은 매우 느린(이동속도 0.5) 보스급 적을 추가하였으며, 맵 전체에 매우 소수(난이도별 1~2마리)만 생성되도록 배분 비율을 조정하고 근거리뿐만 아니라 원거리에서도 F학점 시험지 투사체를 날리는 복합 FSM 행동 양식을 적용함.
+### Version 5 (Angry Professor Speed and HP buff)
+```markdown
+And for the Professor enemy, increase the movement speed slightly and increase the health a bit more.
+```
+
+## 3. Feedback & Refinement
+* **Enemy FSM Implementation**: Built state machines for PATROL, CHASE, ATTACK, and DEAD and integrated with A* pathfinding to trace the player without colliding with walls.
+* **Grade Differentiation**: Grade D enemies have no melee attack and shoot air cannon projectiles instead. Grade F enemies have low spawn rates but double the HP and damage of Grade C.
+* **Visual/Collision Glitch Fixes**: Fixed issues where enemies spawned or walked through wall interiors by using precise grid path node tracking.
+* **Melee Damage Integration**: Resolved the issue where melee damage from C/F grade enemies was not hurting the player. Added `pending_damage` inside `Enemy` and created `EnemyManager.check_melee_hits()` to fetch accumulated melee damage and apply it to player health in `main.py`.
+* **Angry Professor (Grade P)**: Added a boss-grade enemy with massive base HP (originally 300, buffed to 400) and attack damage (30), but slower speed (originally 0.5, buffed to 0.8) than normal enemies. Spawns in low numbers (1~2 depending on difficulty) and fires Grade F test sheet projectiles.
+

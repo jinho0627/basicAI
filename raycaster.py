@@ -101,5 +101,7 @@ class RayCaster:
             'distance': max(distance, 0.1),
             'wall_type': wall_type,
             'hit_x': hit_x,
-            'side': side
+            'side': side,
+            'map_x': map_x,
+            'map_y': map_y
         }

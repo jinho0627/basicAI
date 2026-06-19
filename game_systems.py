@@ -114,9 +114,19 @@ class Weapon:
     총기 상태 관리 + 발사 애니메이션 좌표 반환
     팀원의 적 모듈과 연결:  weapon.shoot() → 충돌 판정은 팀원 코드에서
     """
-    def __init__(self, sound: SoundEngine):
+    def __init__(self, sound: SoundEngine, difficulty: str = 'MEDIUM'):
         self.snd        = sound
-        self.ammo       = MAX_AMMO
+        self.difficulty = difficulty.upper()
+        
+        # 난이도별 최대 탄약 개수 설정
+        if self.difficulty == 'EASY':
+            self.max_ammo = 25
+        elif self.difficulty == 'HARD':
+            self.max_ammo = 75
+        else:  # MEDIUM
+            self.max_ammo = 50
+            
+        self.ammo       = self.max_ammo
         self.last_shot  = 0        # ms
         self.flash      = 0        # 발사 플래시 남은 시간 (ms)
         self.is_firing  = False
@@ -137,7 +147,7 @@ class Weapon:
         return True
 
     def add_ammo(self, n: int = 10):
-        self.ammo = min(MAX_AMMO, self.ammo + n)
+        self.ammo = min(self.max_ammo, self.ammo + n)
         self.snd.play("pickup")
 
     def update(self, dt: int):
@@ -148,7 +158,7 @@ class Weapon:
     # ── HUD용 ─────────────────────
     @property
     def ammo_ratio(self) -> float:
-        return self.ammo / MAX_AMMO
+        return self.ammo / self.max_ammo
 
 
 # ────────────────────────────
@@ -160,11 +170,17 @@ class HealthSystem:
         self.hp          = MAX_HP
         self.max_hp      = MAX_HP
         self._hit_flash  = 0   # 피격 화면 붉은 플래시 ms
+        self._poison_flash = 0  # 독 피격 화면 초록 플래시 ms
 
     def take_damage(self, dmg: int):
         self.hp         = max(0, self.hp - dmg)
         self._hit_flash = 300
         self.snd.play("hit")
+
+    def take_poison_damage(self, dmg: float):
+        # 독 데미지는 천천히 체력을 줄이고 0.2초짜리 짧은 초록 플래시를 발생시킴
+        self.hp = max(0.0, self.hp - dmg)
+        self._poison_flash = 200
 
     def heal(self, n: int = 20):
         self.hp = min(self.max_hp, self.hp + n)
@@ -175,11 +191,16 @@ class HealthSystem:
 
     def update(self, dt: int):
         self._hit_flash = max(0, self._hit_flash - dt)
+        self._poison_flash = max(0, self._poison_flash - dt)
 
     # ── 화면 피격 오버레이 알파 ──
     @property
     def hit_alpha(self) -> int:
         return int(160 * self._hit_flash / 300)
+
+    @property
+    def poison_alpha(self) -> int:
+        return int(120 * self._poison_flash / 200)
 
     @property
     def hp_ratio(self) -> float:
@@ -246,7 +267,7 @@ class HUD:
         self.screen.blit(surf, (x, y))
 
     # ── 메인 그리기 ───────────────
-    def draw(self, health: HealthSystem, weapon: Weapon, score: ScoreSystem):
+    def draw(self, health: HealthSystem, weapon: Weapon, score: ScoreSystem, remaining_enemies: int = 0):
         s = self.screen
         hud_y = GAME_H
 
@@ -258,13 +279,13 @@ class HUD:
         self._text("HP", self.font_sm, C_RED, 20, hud_y + 10)
         hp_color = C_GREEN if health.hp_ratio > 0.4 else C_ORANGE if health.hp_ratio > 0.2 else C_RED
         self._bar(20, hud_y + 30, 160, 16, health.hp_ratio, hp_color)
-        self._text(f"{health.hp}/{health.max_hp}", self.font_sm, C_WHITE, 20, hud_y + 50)
+        self._text(f"{int(math.ceil(health.hp))}/{health.max_hp}", self.font_sm, C_WHITE, 20, hud_y + 50)
 
         # ── 탄약 ──
         self._text("AMMO", self.font_sm, C_ORANGE, 210, hud_y + 10)
         ammo_color = C_YELLOW if weapon.ammo_ratio > 0.3 else C_RED
         self._bar(210, hud_y + 30, 120, 16, weapon.ammo_ratio, ammo_color)
-        self._text(f"{weapon.ammo}/{MAX_AMMO}", self.font_sm, C_WHITE, 210, hud_y + 50)
+        self._text(f"{weapon.ammo}/{weapon.max_ammo}", self.font_sm, C_WHITE, 210, hud_y + 50)
 
         # ── 점수 ──
         self._text("SCORE", self.font_sm, C_YELLOW, 370, hud_y + 10)
@@ -272,7 +293,7 @@ class HUD:
 
         # ── 킬 수 ──
         self._text("KILLS", self.font_sm, C_LTGRAY, 570, hud_y + 10)
-        self._text(str(score.kills), self.font_lg, C_WHITE, 570, hud_y + 30)
+        self._text(f"{score.kills} (LEFT: {remaining_enemies})", self.font_lg, C_WHITE, 570, hud_y + 30)
 
         # ── 스트릭 ──
         if score.streak >= 2:
@@ -291,6 +312,11 @@ class HUD:
             self._flash_surf.fill((200, 0, 0, health.hit_alpha))
             s.blit(self._flash_surf, (0, 0))
 
+        # ── 독 피격 화면 (초록색 오버레이) ──
+        if health.poison_alpha > 0:
+            self._flash_surf.fill((0, 180, 0, health.poison_alpha))
+            s.blit(self._flash_surf, (0, 0))
+
 
 # ────────────────────────────
 #  시작 화면
@@ -305,15 +331,24 @@ class StartScreen:
         self.font_sm    = pygame.font.SysFont("Courier New", 16)
         self._tick = 0
 
-    def handle_event(self, event) -> bool:
-        """ENTER / SPACE 누르면 True 반환 → 게임 시작"""
+    def handle_event(self, event, gs) -> bool:
+        """ENTER / SPACE 누르면 True 반환 → 게임 시작, 1/2/3 누르면 난이도 설정"""
         if event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_RETURN, pygame.K_SPACE):
                 self.snd.play("select")
                 return True
+            elif event.key == pygame.K_1:
+                gs.difficulty = 'EASY'
+                self.snd.play("select")
+            elif event.key == pygame.K_2:
+                gs.difficulty = 'MEDIUM'
+                self.snd.play("select")
+            elif event.key == pygame.K_3:
+                gs.difficulty = 'HARD'
+                self.snd.play("select")
         return False
 
-    def draw(self, dt: int):
+    def draw(self, dt: int, gs: "GameSystems"):
         s = self._tick
         self._tick += dt
         scr = self.screen
@@ -336,7 +371,13 @@ class StartScreen:
 
         # 서브타이틀
         sub = self.font_sub.render("SURVIVE. SHOOT. SCORE.", True, C_ORANGE)
-        scr.blit(sub, (W//2 - sub.get_width()//2, H//2))
+        scr.blit(sub, (W//2 - sub.get_width()//2, H//2 - 20))
+
+        # 난이도 표시 (추가됨)
+        diff_str = f"DIFFICULTY: {gs.difficulty}  [1] EASY  [2] MEDIUM  [3] HARD"
+        diff_color = C_GREEN if gs.difficulty == 'EASY' else C_YELLOW if gs.difficulty == 'MEDIUM' else C_RED
+        diff_surf = self.font_sub.render(diff_str, True, diff_color)
+        scr.blit(diff_surf, (W//2 - diff_surf.get_width()//2, H//2 + 20))
 
         # 시작 안내 (깜빡)
         if (self._tick // 500) % 2 == 0:
@@ -345,9 +386,9 @@ class StartScreen:
 
         # 조작법
         controls = [
-            "WASD / ARROW  :  이동",
-            "MOUSE / LEFT  :  발사",
-            "ESC           :  종료",
+            "WASD / ARROW  :  MOVE",
+            "MOUSE / LEFT  :  FIRE",
+            "ESC           :  QUIT",
         ]
         for i, line in enumerate(controls):
             surf = self.font_sm.render(line, True, C_GRAY)
@@ -381,10 +422,13 @@ class GameOverScreen:
                 return "quit"
         return ""
 
-    def draw(self, score: int, kills: int, dt: int):
+    def draw(self, score: int, kills: int, dt: int, is_victory: bool = False):
         self._tick += dt
         if not self._played:
-            self.snd.play("death")
+            if is_victory:
+                self.snd.play("score")
+            else:
+                self.snd.play("death")
             self._played = True
 
         scr = self.screen
@@ -394,8 +438,11 @@ class GameOverScreen:
         overlay.fill((0, 0, 0, alpha))
         scr.blit(overlay, (0, 0))
 
-        # GAME OVER 텍스트
-        go = self.font_big.render("GAME  OVER", True, C_RED)
+        # GAME OVER 또는 VICTORY 텍스트
+        if is_victory:
+            go = self.font_big.render("VICTORY!", True, C_YELLOW)
+        else:
+            go = self.font_big.render("GAME  OVER", True, C_RED)
         scr.blit(go, (W//2 - go.get_width()//2, H//4))
 
         # 결과
@@ -445,8 +492,9 @@ class GameSystems:
         pygame.display.set_caption(TITLE)
         self.clock  = pygame.time.Clock()
 
+        self.difficulty = 'MEDIUM'
         self.sound  = SoundEngine()
-        self.weapon = Weapon(self.sound)
+        self.weapon = Weapon(self.sound, self.difficulty)
         self.health = HealthSystem(self.sound)
         self.score  = ScoreSystem(self.sound)
         self.hud    = HUD(self.screen)
@@ -455,15 +503,17 @@ class GameSystems:
         self.gameover_screen = GameOverScreen(self.screen, self.sound)
 
         self.state = self.STATE_START
+        self.is_victory = False
 
     # ── 리셋 ──────────────────────
     def _reset(self):
-        self.weapon  = Weapon(self.sound)
+        self.weapon  = Weapon(self.sound, self.difficulty)
         self.health  = HealthSystem(self.sound)
         self.score   = ScoreSystem(self.sound)
         self.hud     = HUD(self.screen)
         self.gameover_screen.reset()
         self.state   = self.STATE_PLAYING
+        self.is_victory = False
 
     # ── 외부 API ──────────────────
     def update(self, dt: int, keys):
@@ -480,10 +530,10 @@ class GameSystems:
             if self.health.is_dead():
                 self.state = self.STATE_GAMEOVER
 
-    def draw(self):
+    def draw(self, remaining_enemies: int = 0):
         """플레이 중: HUD + 오버레이 그리기 (팀원 게임 뷰 위에 덮음)"""
         if self.state == self.STATE_PLAYING:
-            self.hud.draw(self.health, self.weapon, self.score)
+            self.hud.draw(self.health, self.weapon, self.score, remaining_enemies)
 
     # ── 독립 실행 데모 루프 ────────
     def run(self):
@@ -503,7 +553,7 @@ class GameSystems:
                     pygame.quit(); sys.exit()
 
                 if self.state == self.STATE_START:
-                    if self.start_screen.handle_event(event):
+                    if self.start_screen.handle_event(event, self):
                         self.state = self.STATE_PLAYING
 
                 elif self.state == self.STATE_GAMEOVER:
@@ -515,7 +565,7 @@ class GameSystems:
 
             # ── 상태별 업데이트 & 드로우 ──
             if self.state == self.STATE_START:
-                self.start_screen.draw(dt)
+                self.start_screen.draw(dt, self)
 
             elif self.state == self.STATE_PLAYING:
                 # ── 데모용 임시 배경 (팀원 뷰로 교체) ──
@@ -531,7 +581,7 @@ class GameSystems:
 
             elif self.state == self.STATE_GAMEOVER:
                 # 배경 유지 (마지막 게임 뷰 위에 오버레이)
-                self.gameover_screen.draw(self.score.score, self.score.kills, dt)
+                self.gameover_screen.draw(self.score.score, self.score.kills, dt, self.is_victory)
 
             pygame.display.flip()
 

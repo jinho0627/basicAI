@@ -13,7 +13,7 @@ class Player:
         self.angle = angle
         
         # 이동 속도
-        self.move_speed = 4.5        # 기존 3.5 → 4.5 (더 빠름)
+        self.move_speed = 3.5        # 기존 3.5 → 4.5 → 3.5로 재조정
         self.rot_speed = 0.0025      # 기존 0.002 → 0.0025 (더 민감)
         
         # 충돌 반경
@@ -22,14 +22,17 @@ class Player:
         # ━━━ 부드러운 이동을 위한 속도 벡터 ━━━
         self.vel_x = 0.0
         self.vel_y = 0.0
-        self.acceleration = 15.0     # 가속도
+        self.acceleration = 11.0     # 가속도 (기존 15.0)
         self.deceleration = 12.0     # 감속도
-        self.max_speed = 5.0         # 최대 속도
+        self.max_speed = 3.8         # 최대 속도 (기존 5.0)
         
         # ━━━ 부드러운 회전 ━━━
         self.target_angle = angle
         self.angle_velocity = 0.0
         self.angle_smoothing = 0.15  # 0~1 (낮을수록 부드러움)
+
+        # 독 피격 상태
+        self.is_poisoned = False
     
     def handle_movement(self, keys, dt, game_map):
         """WASD 이동 (가속/감속 적용)"""
@@ -58,11 +61,24 @@ class Player:
             input_x /= magnitude
             input_y /= magnitude
         
+        # 독 함정 밟았는지 실시간 검사
+        self.is_poisoned = False
+        if hasattr(game_map, 'traps'):
+            for trap in game_map.traps:
+                dist = math.sqrt((self.x - trap['x'])**2 + (self.y - trap['y'])**2)
+                if dist < 0.9:  # 함정 활성화 범위 (시각적 크기 확대 대응)
+                    self.is_poisoned = True
+                    break
+
+        # 독 상태일 때 가속도와 속도 한계 반감 (60% 감속)
+        accel = self.acceleration * 0.4 if self.is_poisoned else self.acceleration
+        max_speed = self.max_speed * 0.4 if self.is_poisoned else self.max_speed
+
         # ━━━ 가속/감속 ━━━
         if magnitude > 0:
             # 가속
-            self.vel_x += input_x * self.acceleration * dt
-            self.vel_y += input_y * self.acceleration * dt
+            self.vel_x += input_x * accel * dt
+            self.vel_y += input_y * accel * dt
         else:
             # 감속 (마찰)
             friction = self.deceleration * dt
@@ -78,9 +94,9 @@ class Player:
         
         # 최대 속도 제한
         current_speed = math.sqrt(self.vel_x**2 + self.vel_y**2)
-        if current_speed > self.max_speed:
-            self.vel_x = (self.vel_x / current_speed) * self.max_speed
-            self.vel_y = (self.vel_y / current_speed) * self.max_speed
+        if current_speed > max_speed:
+            self.vel_x = (self.vel_x / current_speed) * max_speed
+            self.vel_y = (self.vel_y / current_speed) * max_speed
         
         # 실제 이동 적용
         new_x = self.x + self.vel_x * dt

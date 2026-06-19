@@ -1,42 +1,71 @@
-#  map.py AI 프롬프트 기록장
+# 📝 map.py AI Prompt Log
 
-이 파일은 `map.py` 코드를 생성하거나 수정할 때 사용한 AI 프롬프트를 기록하는 공간입니다.
+This file is a log of AI prompts used when creating or modifying the `map.py` code.
 
-## 1. 역할 및 개발 목표 (Role & Objective)
-* Pygame 기반 3D 둠 클론 게임에 사용할 2D 그리드 미로 생성
-* 재귀 백트래킹(DFS) 알고리즘을 사용한 맵 절차적 설계 및 벽 배치
-* 플레이어 및 학점별 적 캐릭터의 초기 스폰 포인트 계산 및 유효성 관리
+## 1. Role & Objective
+* Create a 2D grid maze for a Pygame-based 3D Doom clone game.
+* Procedurally design maps and place walls using the Recursive Backtracking (DFS) algorithm.
+* Compute initial spawn points for the player and graded enemies, managing spawn safety.
 
-## 2. 사용한 프롬프트 (Prompts Used)
-### 버전 1 (최초 생성 및 미로 설계)
+## 2. Prompts Used
+### Version 1 (Initial Maze Design)
 ```markdown
-파이썬으로 둠 이라는 게임을 만들건데 내가 B팀원 : 맵 및 적 AI 담당이거든
+I'm going to make a game called Doom in Python, and I'm Team B member: in charge of map and enemy AI.
 
-주요 업무
-맵 설계
-벽 배치
+Key tasks:
+- Map design
+- Wall layout
 
-GitHub 담당 파일 예시
+Example file in GitHub:
 map.py
 
-이런 파일들을 만들텐데 나중에 하나로 합칠수 있게 해줘
+We'll create these files and make sure they can be merged into a single game later.
 ```
 
-### 버전 2 (실행 시 무작위 맵 갱신)
+### Version 2 (Randomized Map Generation on Startup)
 ```markdown
-맵은 게임을 돌릴때마다 완전히 새로 만들어줘
+Generate a completely new map structure every time the game runs.
 ```
 
-### 버전 3 (콘솔 인코딩 에러 및 적 스폰 편중 수정)
+### Version 3 (Console Encoding Error & Enemy Spawn Balance)
 ```markdown
-1. 게임을 실행하려고 하면 콘솔 맵 출력(Unicode) 부분에서 UnicodeEncodeError가 나며 튕겨.
-2. 게임 중에 적들이 맵 끝에만 뭉쳐있어서 보이지 않는데, 맵 전체에 적당히 분산 스폰되게 수정해줘.
+1. When running the game, a UnicodeEncodeError occurs in the console map drawing part, crashing the game.
+2. During the game, enemies bunch up at the map edges and aren't visible. Modify spawn positions to distribute enemies across the map.
 ```
 
-## 3. 피드백 및 조정 내용 (Feedback & Refinement)
-* **절차적 맵 생성**: 매 실행마다 랜덤 시드를 활용해 완전히 다른 구조의 맵을 생성하도록 설정하고, 모든 통로가 막힘 없이 서로 연결되도록 보장함.
-* **스폰 지점 결정**: 플레이어 스폰 위치와 적 스폰 위치를 멀리 떨어지게 배치하여 스폰되자마자 적에게 피격당하지 않도록 설계함.
-* **벽 유형 지정**: 레이캐스터 엔진(A팀) 및 HUD/총기 시스템(C팀)과의 호환을 위해 벽 유형에 따른 번호(예: 1=돌벽, 2=푸른벽)를 지정하여 렌더링에 매핑함.
-* **콘솔 인코딩 에러 대응**: `print_map` 시 CP949 환경에서 유니코드 블록 문자(`██`) 인코딩 오류가 발생하면 ASCII 문자인 `##`로 자동 대체하도록 예외 처리.
-* **적 스폰 무작위화**: 플레이어 스폰 위치에서 최장 거리 위주로만 고정 스폰되던 연산을 `random.shuffle`을 이용하여 미로 전체에 분산화.
+### Version 4 (Poison Traps, Auto Doors, and Secret Room Layout)
+```markdown
+Create poison traps at random positions on the map floor that slowly drain health and slow down movement when stepped on. Create automatic doors that are normally closed but open when approached to act as shortcuts. Also create a secret room that only opens when you are almost touching the wall, containing either an A+ grade item that grants lots of score, or a cafeteria meal item that restores health. The two items must not spawn together in the same room.
+```
 
+### Version 5 (Trap Location Rules & Close Auto Doors)
+```markdown
+Show the number of remaining enemies next to the kill counter. Make the poison puddles slightly larger, and make the health drain slower. Do not place traps in one-way paths (dead-ends). Also make the auto doors open only when standing close, similar to secret rooms.
+```
+
+### Version 6 (Door Ranges & Trap Quantity)
+```markdown
+Increase the trigger range of auto doors and secret rooms to at least 1 unit, they don't open well. Reduce the number of poison traps, and increase the maximum starting/max ammo size.
+```
+
+### Version 7 (Slowly Sliding Doors)
+```markdown
+Make poison trap damage reduce health in integers. Make auto doors and secret rooms open slightly slower. Let the user adjust difficulty on the start screen using number keys.
+```
+
+### Version 8 (Door Range Extension)
+```markdown
+Increase the recognition range of all doors slightly more.
+```
+
+## 3. Feedback & Refinement
+* **Procedural Map Generation**: Implemented random seeds on startup to generate uniquely shaped mazes every session. Ensured all open corridors are connected so there are no isolated/inaccessible zones.
+* **Spawn Calculations**: Ensured player spawns are far away from initial enemy spawns to avoid cheap deaths right at startup.
+* **Wall Varieties**: Mapped specific numeric indices to walls (e.g., 1 for Stone Wall, 2 for Blue Wall) to assist Team A's 3D raycaster and renderer.
+* **Console Encoding Error Handling**: Caught encoding crashes in `print_map` on CP949 terminals by automatically replacing unicode block symbols (`██`) with ASCII characters (`##`).
+* **Distributed Spawn Points**: Used `random.shuffle` on generated corridor locations to distribute spawns across the entire maze layout instead of grouping them strictly in the furthest corner.
+* **Interactive Elements Layout**: Placed auto doors (4) at path junctions. Added secret doors (5) hiding isolated secret rooms containing exactly one item (either A+ or meal tray).
+* **Dead-End Filtering**: Ensured poison traps are not generated in dead-end corridors (where corridor neighbors $\le 1$) so that players are never forced to step on a poison trap with no alternative route.
+* **Auto Door Range Adjustments**: Decreased the auto door activation range from `2.0` to `0.8` to require closer interaction, re-adjusted to `1.0` (same as secret rooms) to make the gameplay feel smoother, and finally increased both automatic and secret door detection range thresholds to `1.5` to provide a much more comfortable interaction distance.
+* **Trap Cap**: Reduced the maximum number of poison traps from `6` to `3` to keep corridors cleaner.
+* **Sliding Door States**: Replaced binary open/close jumps with an `'opening'` state machine that increments door `progress` step-by-step to create a smooth sliding-up animation.

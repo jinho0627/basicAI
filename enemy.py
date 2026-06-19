@@ -33,7 +33,7 @@ GRADE_SPECS = {
     'C': {'hp': 70,  'speed': 1.1, 'damage': 8,  'attack_range': 1.2, 'detection_range': 8.0, 'score': 100},
     'D': {'hp': 70,  'speed': 1.1, 'damage': 8,  'attack_range': 0.0, 'detection_range': 8.0, 'score': 200},  # 근접 공격 없음
     'F': {'hp': 140, 'speed': 1.4, 'damage': 16, 'attack_range': 1.2, 'detection_range': 8.0, 'score': 300},
-    'P': {'hp': 300, 'speed': 0.5, 'damage': 30, 'attack_range': 1.5, 'detection_range': 12.0, 'score': 500},
+    'P': {'hp': 400, 'speed': 0.8, 'damage': 30, 'attack_range': 1.5, 'detection_range': 12.0, 'score': 500},
 }
 
 
@@ -210,7 +210,7 @@ class Enemy:
             # 공격 실행
             self.attack_cooldown = self.attack_rate
             self.pending_damage += self.damage
-            print(f"[AI ATTACK] {self.grade}학점 적이 플레이어에게 {self.damage} 만큼의 피해를 입혔습니다!")
+            print(f"[AI ATTACK] Grade {self.grade} Enemy dealt {self.damage} damage to Player!")
 
     def chase_behavior(self, player_pos, grid_map, dt):
         """A* 알고리즘을 이용해 플레이어를 추적하는 행동 패턴"""

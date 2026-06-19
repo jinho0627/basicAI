@@ -1,35 +1,66 @@
-# 📝 test_ai.py AI 프롬프트 기록장
+# 📝 test_ai.py AI Prompt Log
 
-이 파일은 `test_ai.py` 코드를 생성하거나 수정할 때 사용한 AI 프롬프트를 기록하는 공간입니다.
+This file is a log of AI prompts used when creating or modifying the `test_ai.py` code.
 
-## 1. 역할 및 개발 목표 (Role & Objective)
-* B팀의 담당 기능(맵 생성, A* 알고리즘, 적 난이도 배율 등)이 바르게 동작하는지 유닛 테스트(Unit Test)로 자체 검증
-* 코드의 동작 안정성 보장 및 깃허브 Pull Request 전 기능 무결성 테스트 실행
+## 1. Role & Objective
+* Write unit tests (Unit Test) to verify the core algorithms (Procedural Map generation, A* pathfinding, Enemy FSMs, and difficulty multipliers) of Team B's modules.
+* Ensure code safety and feature integrity before merging features or opening pull requests.
 
-## 2. 사용한 프롬프트 (Prompts Used)
-### 버전 1 (최초 생성 및 유닛 테스트 시나리오)
+## 2. Prompts Used
+### Version 1 (Initial Test Suite)
 ```markdown
-B팀 담당 파일(map.py, enemy.py, pathfinding.py)의 기능들을 검증할 수 있는 유닛 테스트 코드를 test_ai.py 파일로 작성해줘.
+Create a unit test file named test_ai.py that validates B team's files (map.py, enemy.py, pathfinding.py).
 ```
 
-### 버전 2 (근접 공격 데미지 누적 및 수집 기능 유닛 테스트 추가)
+### Version 2 (Melee Damage Accumulation Test)
 ```markdown
-게임 플레이 해보니까 d 말고 다른 적들이 공격하는게 체력에 바로바로 반영이 안되는거 같아
+While playing, it seems that attacks from enemies other than D are not being reflected in player health immediately.
 ```
 
-### 버전 3 (최강의 적 화난 교수님 추가 및 스폰 구성 검증 테스트 보완)
+### Version 3 (Angry Professor Boss Spawn Ratio Tests)
 ```markdown
-화난 교수님 모양의 적을 만들어줘 제일 쎄고 강한 대신 수가 느리고 적게 생성해줘
+Add an "Angry Professor" boss enemy. Make him the strongest and toughest, but slow and spawn in very low numbers.
 ```
 
-## 3. 피드백 및 조정 내용 (Feedback & Refinement)
-* **테스트 검증 시나리오**:
-  * 맵 생성 무작위성 및 시드 고정 재현성 테스트
-  * 맵 테두리 벽 유무 및 플레이어/적의 스폰 위치 유효성 검증
-  * A* 알고리즘 경로 반환 및 최적 경로 유무 확인
-  * 적의 학점별 기본 스펙 검증
-  * 난이도 배율(쉬움=5마리, 보통=10마리, 어려움=15마리) 및 체력/점수 곱 연산 기능 테스트
-  * 근접 공격 시 `pending_damage`의 누적 및 `EnemyManager.check_melee_hits()` 호출 시 수집 후 0으로 초기화되는지 검증하는 테스트 추가
-  * 화난 교수님(`'P'`) 학점 등급의 기본 스펙(HP 300, 공격력 30) 검증 및 난이도별 스폰 구성비(P학점 소량 소환) 검증 테스트 케이스 추가 및 업데이트
-* **테스트 실행 용이성**: `unittest.main()` 진입점을 마련하여 파일 단독으로도 간편하게 전체 테스트 스위트를 검증할 수 있도록 설계함.
+### Version 4 (Poison Trap, Auto/Secret Door, and Item Spawns Verification)
+```markdown
+Create poison traps at random positions on the map floor that slowly drain health and slow down movement when stepped on. Create automatic doors that are normally closed but open when approached to act as shortcuts. Also create a secret room that only opens when you are almost touching the wall, containing either an A+ grade item that grants lots of score, or a cafeteria meal item that restores health. The two items must not spawn together in the same room.
+```
+
+### Version 5 (Trap Placement Filters and Door Proximities)
+```markdown
+Show the number of remaining enemies next to the kill counter. Make the poison puddles slightly larger, and make the health drain slower. Do not place traps in one-way paths (dead-ends). Also make the auto doors open only when standing close, similar to secret rooms.
+```
+
+### Version 6 (Updated Proximity Ranges)
+```markdown
+Increase the trigger range of auto doors and secret rooms to at least 1 unit, they don't open well. Reduce the number of poison traps, and increase the maximum starting/max ammo size.
+```
+
+### Version 7 (Sliding Door Delay Verification)
+```markdown
+Make poison trap damage reduce health in integers. Make auto doors and secret rooms open slightly slower. Let the user adjust difficulty on the start screen using number keys.
+```
+
+### Version 8 (Proximity & Boss HP Test Updates)
+```markdown
+Update tests to reflect Grade P HP buff (400) and door detection range extension (1.5).
+```
+
+## 3. Feedback & Refinement
+* **Test Verification Scope**:
+  * Randomized map seed reproducibility.
+  * Outer border wall checks and player/enemy spawn tile safety.
+  * A* path availability and correct node connections.
+  * Enemy grade base parameters.
+  * Spawn volumes per difficulty (5 for Easy, 10 for Medium, 15 for Hard) and correct damage multipliers.
+  * Melee damage compilation in `pending_damage` and verification that `check_melee_hits()` clears the value.
+  * Angry Professor (P) attributes (buffed to HP 400, Attack 30) and spawn ratio bounds checking.
+  * **Interactive Element Validations**:
+    * Auto door range triggers (opening inside 1.5, setting cell grid to 0, transitioning state to open, and locking back to closed/4 after delay).
+    * Secret doors trigger check (only opening when distance < 1.5).
+    * Secret room validation (ensuring exactly one item type, either A+ or H, is placed on the secret room floor).
+    * Dead-end check (`test_traps_no_dead_ends`) ensuring no poison trap spawns in cells with $\le 1$ walkable neighbor.
+    * Sliding animation verification: calling `update_doors` twice with a simulated sleep interval to confirm the state changes from `'closed'` to `'opening'` and finally to `'open'`.
+* **Execution Utility**: Added `unittest.main()` block so the developer can execute tests directly.
 

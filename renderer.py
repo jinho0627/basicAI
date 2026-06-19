@@ -18,11 +18,13 @@ class Renderer:
         self.ceiling_color = (30, 25, 35)    # 어두운 보라
         self.floor_color = (45, 40, 35)      # 어두운 갈색
         
-        # 벽 색상 (더 선명)
+        # 벽 및 문 색상 (더 선명)
         self.wall_colors = {
             1: (180, 140, 120),  # 따뜻한 돌벽
             2: (120, 120, 160),  # 푸른 벽
             3: (160, 100, 100),  # 붉은 벽
+            4: (80, 90, 100),    # 철제 자동문
+            5: (180, 140, 120),  # 비밀문 (돌벽 1번과 동일 색상으로 위장)
         }
         
         # ━━━ 부드러운 렌더링 ━━━
@@ -174,8 +176,40 @@ class Renderer:
         text_f = font_proj.render("F", True, (255, 0, 0))
         surf_proj_p.blit(text_f, (28, 12))
         self.sprite_textures['proj_p'] = surf_proj_p
+
+        # 7. 독 함정 (바닥의 초록색 독성 물질 웅덩이)
+        surf_trap = pygame.Surface((128, 128), pygame.SRCALPHA)
+        pygame.draw.ellipse(surf_trap, (0, 180, 0, 150), (14, 80, 100, 40))
+        pygame.draw.ellipse(surf_trap, (0, 230, 0, 200), (24, 90, 80, 25))
+        pygame.draw.ellipse(surf_trap, (150, 255, 150, 220), (39, 95, 50, 12))
+        self.sprite_textures['trap'] = surf_trap
+
+        # 8. A+ 학점 아이템 (금빛으로 빛나는 A+ 마크)
+        surf_item_a = pygame.Surface((128, 128), pygame.SRCALPHA)
+        pygame.draw.ellipse(surf_item_a, (255, 215, 0, 80), (14, 100, 100, 20))
+        for r in range(40, 0, -4):
+            color = (255, 200 + r, 50 - r)
+            pygame.draw.circle(surf_item_a, color, (64, 64), r)
+        pygame.draw.circle(surf_item_a, (255, 255, 255), (64, 64), 32, 2)
+        font_item = pygame.font.SysFont("Courier New", 32, bold=True)
+        text_ap = font_item.render("A+", True, (255, 0, 0))
+        surf_item_a.blit(text_ap, (64 - text_ap.get_width() // 2, 64 - text_ap.get_height() // 2))
+        self.sprite_textures['item_a'] = surf_item_a
+
+        # 9. 학식 아이템 (식기 트레이 위에 밥, 국, 반찬)
+        surf_item_h = pygame.Surface((128, 128), pygame.SRCALPHA)
+        pygame.draw.ellipse(surf_item_h, (0, 0, 0, 60), (14, 100, 100, 20))
+        pygame.draw.rect(surf_item_h, (170, 170, 180), (24, 60, 80, 50), border_radius=5)
+        pygame.draw.rect(surf_item_h, (120, 120, 130), (24, 60, 80, 50), 3, border_radius=5)
+        pygame.draw.circle(surf_item_h, (240, 240, 240), (44, 75), 14)
+        pygame.draw.circle(surf_item_h, (139, 69, 19), (84, 75), 14)
+        pygame.draw.ellipse(surf_item_h, (40, 180, 40), (38, 92, 16, 10))
+        pygame.draw.ellipse(surf_item_h, (220, 40, 40), (74, 92, 16, 10))
+        pygame.draw.arc(surf_item_h, (200, 200, 200), (38, 42, 12, 18), 0, math.pi, 2)
+        pygame.draw.arc(surf_item_h, (200, 200, 200), (78, 42, 12, 18), 0, math.pi, 2)
+        self.sprite_textures['item_h'] = surf_item_h
     
-    def render_frame(self, screen, rays, player_x, player_y, player_angle, enemies=None, projectiles=None):
+    def render_frame(self, screen, rays, player_x, player_y, player_angle, enemies=None, projectiles=None, game_map=None):
         """3D 화면 및 스프라이트(적, 투사체) 렌더링"""
         # 천장과 바닥 (그라디언트 효과)
         self._render_floor_ceiling(screen)
@@ -185,12 +219,12 @@ class Renderer:
         column_width = self.width / num_rays
         
         for i, ray in enumerate(rays):
-            self._render_wall_slice(screen, i, column_width, ray)
+            self._render_wall_slice(screen, i, column_width, ray, game_map)
 
         # 스프라이트(적, 투사체) 렌더링
-        self._render_sprites(screen, rays, player_x, player_y, player_angle, enemies, projectiles)
+        self._render_sprites(screen, rays, player_x, player_y, player_angle, enemies, projectiles, game_map)
 
-    def _render_sprites(self, screen, rays, player_x, player_y, player_angle, enemies, projectiles):
+    def _render_sprites(self, screen, rays, player_x, player_y, player_angle, enemies, projectiles, game_map=None):
         """적 및 투사체 스프라이트를 원근 정렬하여 렌더링"""
         sprites_to_render = []
         
@@ -218,6 +252,32 @@ class Renderer:
                     'y': proj.y,
                     'dist': dist,
                     'type': getattr(proj, 'type', 'proj'),
+                })
+
+        # 3. 독 함정 수집
+        if game_map and hasattr(game_map, 'traps'):
+            for trap in game_map.traps:
+                dx = trap['x'] - player_x
+                dy = trap['y'] - player_y
+                dist = math.sqrt(dx**2 + dy**2)
+                sprites_to_render.append({
+                    'x': trap['x'],
+                    'y': trap['y'],
+                    'dist': dist,
+                    'type': 'trap',
+                })
+
+        # 4. 아이템 수집
+        if game_map and hasattr(game_map, 'items'):
+            for item in game_map.items:
+                dx = item['x'] - player_x
+                dy = item['y'] - player_y
+                dist = math.sqrt(dx**2 + dy**2)
+                sprites_to_render.append({
+                    'x': item['x'],
+                    'y': item['y'],
+                    'dist': dist,
+                    'type': 'item_a' if item['type'] == 'A+' else 'item_h',
                 })
                 
         # 3. 원근 정렬 (거리가 먼 순으로 정렬 - Painter's Algorithm)
@@ -255,19 +315,36 @@ class Renderer:
             # 스프라이트 크기 계산 (원근 스케일링 - 화면 가장자리 왜곡 방지를 위해 유클리드 거리 사용)
             sprite_height = int(self.game_height / dist)
             sprite_width = sprite_height
-            
-            # 투사체는 몬스터보다 작게 축소
-            if sprite['type'] in ('proj', 'proj_p'):
-                scale_factor = 0.38 if sprite['type'] == 'proj_p' else 0.25
-                sprite_width = int(sprite_width * scale_factor)
-                sprite_height = int(sprite_height * scale_factor)
+
+            # 원본 높이 기억 (바닥 정렬용)
+            unscaled_height = sprite_height
+
+            # 투사체, 독함정, 아이템 축소 및 납작화
+            if sprite['type'] in ('proj', 'proj_p', 'trap', 'item_a', 'item_h'):
+                if sprite['type'] == 'proj':
+                    sf_w, sf_h = 0.25, 0.25
+                elif sprite['type'] == 'proj_p':
+                    sf_w, sf_h = 0.38, 0.38
+                elif sprite['type'] == 'trap':
+                    sf_w, sf_h = 1.1, 0.4  # 넓고 납작하게 (크기 확대)
+                else:  # item_a, item_h
+                    sf_w, sf_h = 0.4, 0.4
+                sprite_width = int(sprite_width * sf_w)
+                sprite_height = int(sprite_height * sf_h)
                 
             if sprite_height <= 0 or sprite_width <= 0:
                 continue
                 
             # 화면 그리기 좌표 범위 설정
-            draw_start_y = self.half_height - sprite_height // 2
-            draw_end_y = self.half_height + sprite_height // 2
+            if sprite['type'] in ('trap', 'item_a', 'item_h'):
+                # 바닥에 정렬 (벽 아래 끝부분에 맞춤)
+                bottom_y = self.half_height + unscaled_height // 2
+                draw_start_y = bottom_y - sprite_height
+                draw_end_y = bottom_y
+            else:
+                # 중앙에 정렬 (몬스터, 투사체 등)
+                draw_start_y = self.half_height - sprite_height // 2
+                draw_end_y = self.half_height + sprite_height // 2
             
             draw_start_x = screen_x - sprite_width // 2
             draw_end_x = screen_x + sprite_width // 2
@@ -312,11 +389,13 @@ class Renderer:
             color = tuple(int(c * (1.0 - ratio * 0.3)) for c in self.floor_color)
             pygame.draw.line(screen, color, (0, y), (self.width, y))
     
-    def _render_wall_slice(self, screen, column_idx, column_width, ray):
+    def _render_wall_slice(self, screen, column_idx, column_width, ray, game_map=None):
         """벽 한 줄 그리기 (부드러운 음영)"""
         distance = ray['distance']
         wall_type = ray['wall_type']
         side = ray['side']
+        map_x = ray.get('map_x')
+        map_y = ray.get('map_y')
         
         if wall_type == 0:
             return
@@ -326,6 +405,20 @@ class Renderer:
         
         draw_start = max(0, self.half_height - wall_height // 2)
         draw_end = min(self.game_height, self.half_height + wall_height // 2)
+        
+        # 문 개방 진행률에 따른 슬라이드 효과 (천천히 열림)
+        progress = 0.0
+        if game_map and map_x is not None and map_y is not None:
+            door_pos = (map_x, map_y)
+            if door_pos in game_map.doors:
+                progress = game_map.doors[door_pos].get('progress', 0.0)
+                
+        if progress > 0.0:
+            draw_end_animated = draw_start + int(wall_height * (1.0 - progress))
+            draw_end = min(draw_end, draw_end_animated)
+            
+        if draw_end <= draw_start:
+            return
         
         # 기본 색상
         base_color = self.wall_colors.get(wall_type, (180, 140, 120))

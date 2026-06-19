@@ -7,6 +7,16 @@ A팀: 메인 게임 엔진 - 모든 시스템 통합 및 게임 루프
 import pygame
 import sys
 import math
+import io
+
+# 한글 깨짐 방지를 위해 표준 출력 인코딩을 UTF-8로 설정
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 # A팀 모듈
 from player import Player
@@ -44,23 +54,23 @@ class GameEngine:
         self.target_fps = 60
         
         # B팀: 맵 생성
-        print("=== 맵 생성 중 ===")
+        print("=== Generating Map ===")
         self.game_map = Map(width=21, height=21, seed=None)
         self.game_map.print_map()
         
         # A팀: 플레이어 생성
         px, py = self.game_map.player_spawn
         self.player = Player(px, py, angle=0)
-        print(f"플레이어 스폰: ({px:.1f}, {py:.1f})")
+        print(f"Player Spawn: ({px:.1f}, {py:.1f})")
         
         # A팀: 레이캐스터 & 렌더러
         self.raycaster = RayCaster(fov=math.pi / 2.5)  # 72도 FOV
         self.renderer = Renderer(self.width, self.height, self.hud_height)
         
         # B팀: 적 매니저
-        self.enemy_manager = EnemyManager(difficulty='보통')
+        self.enemy_manager = EnemyManager(difficulty='medium')
         self.enemy_manager.spawn_enemies(self.game_map)
-        print(f"적 스폰 완료: {len(self.enemy_manager.enemies)}마리")
+        print(f"Enemy Spawns Complete: {len(self.enemy_manager.enemies)} enemies")
         
         # C팀: 게임 시스템
         self.game_systems = GameSystems()
@@ -75,7 +85,7 @@ class GameEngine:
         # FPS 표시
         self.font = pygame.font.SysFont("Courier New", 20)
         
-        print("=== 게임 엔진 초기화 완료 ===\n")
+        print("=== Game Engine Initialization Complete ===\n")
     
     def reset_game(self):
         """게임 리셋 (재시작 시)"""
@@ -87,11 +97,12 @@ class GameEngine:
         self.player = Player(px, py, angle=0)
         
         # 적 재스폰
+        self.enemy_manager.set_difficulty(self.game_systems.difficulty)
         self.enemy_manager.enemies.clear()
         self.enemy_manager.projectiles.clear()
         self.enemy_manager.spawn_enemies(self.game_map)
         
-        print("=== 게임 리셋 완료 ===")
+        print("=== Game Reset Complete ===")
     
     def handle_events(self):
         """이벤트 처리 (키보드, 마우스, 종료)"""
@@ -101,8 +112,8 @@ class GameEngine:
             
             # C팀 시작 화면 이벤트
             if self.game_systems.state == GameSystems.STATE_START:
-                if self.game_systems.start_screen.handle_event(event):
-                    self.game_systems.state = GameSystems.STATE_PLAYING
+                if self.game_systems.start_screen.handle_event(event, self.game_systems):
+                    self.game_systems._reset()
                     self.reset_game()
             
             # C팀 게임 오버 화면 이벤트
@@ -138,6 +149,37 @@ class GameEngine:
         # B팀: 적 AI 업데이트
         player_pos = self.player.get_pos()
         self.enemy_manager.update_all(player_pos, self.game_map, dt)
+        
+        # 모든 적을 처치하면 승리 처리
+        active_enemies = self.enemy_manager.get_active_enemies()
+        if len(active_enemies) == 0:
+            self.game_systems.state = GameSystems.STATE_GAMEOVER
+            self.game_systems.is_victory = True
+        
+        # B팀: 문 개폐 업데이트 (자동문, 비밀문)
+        self.game_map.update_doors(player_pos, self.enemy_manager, dt)
+        
+        # B팀: 독 함정 위에 있으면 체력을 서서히 깎음
+        if self.player.is_poisoned:
+            self.game_systems.health.take_poison_damage(5.0 * dt)
+            
+        # B팀: 아이템 획득 검사 및 효과 적용 (A+, 학식)
+        px, py = player_pos
+        items_to_keep = []
+        if hasattr(self.game_map, 'items'):
+            for item in self.game_map.items:
+                dist = math.sqrt((item['x'] - px)**2 + (item['y'] - py)**2)
+                if dist < 0.6:  # 획득 반경
+                    if item['type'] == 'A+':
+                        self.game_systems.score.score += 1000
+                        self.game_systems.sound.play("pickup")
+                        print("[ITEM] A+ Grade Item Picked Up! +1000 Points!")
+                    elif item['type'] == 'H':
+                        self.game_systems.health.heal(40)
+                        print("[ITEM] Meal Tray Picked Up! +40 HP Restored!")
+                else:
+                    items_to_keep.append(item)
+            self.game_map.items = items_to_keep
         
         # B팀: 투사체 및 근접 공격 충돌 검사 → C팀 체력 감소
         proj_damage = self.enemy_manager.check_projectile_hits(player_pos)
@@ -198,7 +240,7 @@ class GameEngine:
         
         if gs.state == GameSystems.STATE_START:
             # C팀: 시작 화면
-            gs.start_screen.draw(self.clock.get_time())
+            gs.start_screen.draw(self.clock.get_time(), gs)
         
         elif gs.state == GameSystems.STATE_PLAYING:
             # A팀: 3D 게임 뷰
@@ -213,11 +255,11 @@ class GameEngine:
             
             self.renderer.render_frame(
                 self.screen, rays, px, py, self.player.angle,
-                enemies, projectiles
+                enemies, projectiles, self.game_map
             )
             
             # C팀: HUD 오버레이
-            gs.draw()
+            gs.draw(len(enemies))
             
             # FPS 표시
             fps_text = self.font.render(
@@ -228,13 +270,13 @@ class GameEngine:
         
         elif gs.state == GameSystems.STATE_GAMEOVER:
             # C팀: 게임 오버 화면
-            gs.gameover_screen.draw(gs.score.score, gs.score.kills, self.clock.get_time())
+            gs.gameover_screen.draw(gs.score.score, gs.score.kills, self.clock.get_time(), gs.is_victory)
         
         pygame.display.flip()
     
     def run(self):
         """메인 게임 루프"""
-        print("=== 게임 시작 ===")
+        print("=== Game Started ===")
         
         while self.running:
             # 델타 타임 계산 (초 단위)
@@ -250,7 +292,7 @@ class GameEngine:
             self.render()
         
         # 종료
-        print("=== 게임 종료 ===")
+        print("=== Game Over ===")
         pygame.quit()
         sys.exit()
 

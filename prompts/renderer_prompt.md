@@ -1,29 +1,49 @@
-# 📝 renderer.py AI 프롬프트 기록장
+# 📝 renderer.py AI Prompt Log
 
-이 파일은 `renderer.py` 코드를 생성하거나 수정할 때 사용한 AI 프롬프트를 기록하는 공간입니다.
+This file is a log of AI prompts used when creating or modifying the `renderer.py` code.
 
-## 1. 역할 및 개발 목표 (Role & Objective)
-*여기에 AI에게 지정한 역할(예: 3D 렌더링 개발자, 그래픽스 엔진 엔지니어)과 개발 목표를 작성하세요.*
+## 1. Role & Objective
+* Render projected 3D wall columns, calculate texture scales, and draw billboarding sprites (enemies, projectiles, items, traps) in the correct perspective.
+* Avoid fish-eye distortion, handle screen-clipping edge noise, and perform Z-buffering to correctly mask sprites behind walls.
 
-## 2. 사용한 프롬프트 (Prompts Used)
-### 버전 1 (최초 생성)
+## 2. Prompts Used
+### Version 1 (Initial Renderer)
 ```markdown
-[최초 생성 시 입력한 프롬프트를 여기에 작성하세요]
+[Please write the prompt used for initial creation here]
 ```
 
-### 버전 2 (스프라이트 렌더링 추가 및 화면 깜빡임/가장자리 왜곡 버그 해결)
+### Version 2 (Sprite Rendering & Edge Flicker Glitch Fixes)
 ```markdown
-1. 게임창 상에서 적(몬스터)과 적이 쏘는 투사체가 3D 공간에 렌더링되게 기능을 추가해줘.
-2. 화면을 돌려서 적이 화면 가장자리에 있을 때, 거대하게 화면 전체를 덮으며 깜빡거리는 노이즈 현상이 생기는데 고쳐줘.
+1. Add functionality to render enemies and enemy projectiles in 3D space on the game window.
+2. When rotating the camera, if an enemy sprite reaches the screen edges, they stretch to cover the entire height and flicker. Please fix this noise issue.
 ```
 
-### 버전 3 (최강의 적 화난 교수님 및 시험지 스프라이트 추가)
+### Version 3 (Angry Professor Boss Sprite & F Sheet Projectiles)
 ```markdown
-화난 교수님 모양의 적을 만들어줘 제일 쎄고 강한 대신 수가 느리고 적게 생성해줘
+Add an "Angry Professor" boss enemy. Make him the strongest and toughest, but slow and spawn in very low numbers.
 ```
 
-## 3. 피드백 및 조정 내용 (Feedback & Refinement)
-* **적/투사체 스프라이트 렌더링**: C, D, F 학점 몬스터 및 투사체 텍스처를 Pygame Surface로 프리렌더링하여 캐싱한 뒤, 거리에 맞게 크기를 스케일링하는 원근 투영 및 거리에 따른 정렬 알고리즘(Painter's Algorithm) 적용.
-* **1D Z-Buffer 벽 가림 판정**: 이미 그려진 3D 벽의 거리 데이터를 활용하여, 벽 뒤에 있는 적 영역은 슬라이싱하여 그리지 않도록 구현.
-* **어안 팽창 및 깜빡임 노이즈 버그 수정**: 적이 화면 측면(90도 부근)에 갈 때 수직 투영 깊이(`dist_x`)가 0에 수렴하여 렌더링 크기가 폭발하는 현상을 해결하기 위해 유클리드 직선 거리(`dist`) 기준으로 크기를 스케일링하고, 시야각 제한 마진(`fov/2 + 0.5`)을 넘어서는 스프라이트를 렌더링 전 전처리 필터링하도록 수정.
-* **교수님(P학점) 및 F시험지 투사체(proj_p) 스프라이트 구현**: 회색 옆머리와 빨간 넥타이, 화난 안경 낀 얼굴을 가진 대머리 교수님 스프라이트를 렌더링하고, 교수님이 날리는 F 시험지 모양의 2D 평면 시험지 텍스처를 생성 및 원근 정렬하여 렌더링함.
+### Version 4 (Poison Trap, Sliding Door, and Item Sprites)
+```markdown
+Create poison traps at random positions on the map floor that slowly drain health and slow down movement when stepped on. Create automatic doors that are normally closed but open when approached to act as shortcuts. Also create a secret room that only opens when you are almost touching the wall, containing either an A+ grade item that grants lots of score, or a cafeteria meal item that restores health. The two items must not spawn together in the same room.
+```
+
+### Version 5 (Scale up Poison Puddle Sprites)
+```markdown
+Show the number of remaining enemies next to the kill counter. Make the poison puddles slightly larger, and make the health drain slower. Do not place traps in one-way paths (dead-ends). Also make the auto doors open only when standing close, similar to secret rooms.
+```
+
+### Version 6 (Sliding Door vertical scale adjustments)
+```markdown
+Make poison trap damage reduce health in integers. Make auto doors and secret rooms open slightly slower. Let the user adjust difficulty on the start screen using number keys.
+```
+
+## 3. Feedback & Refinement
+* **Billboarding Sprite Projection**: Cached Grade C, D, and F enemy images as pre-rendered surfaces. Sorted items by distance (Painter's Algorithm) and scaled their size dynamically to draw them in 3D perspective.
+* **1D Z-Buffer Occlusion**: Used a list of wall-slice distances (calculated during raycasting) to discard sprite slices that lie behind walls, preventing sprites from bleeding through walls.
+* **Fish-Eye/Flicker Edge Fixes**: Fixed the issue where sprites inflated to cover the entire screen height when they approached the lateral edges ($90^\circ$ relative to player). Replaced simple orthogonal projection with Euclidean distance scaling and skipped drawing sprites whose relative camera angles fell outside the Field of View plus a minor safety threshold.
+* **Angry Professor & Test Sheets**: Designed a unique boss texture (bald hair, red tie, and glasses) for the Angry Professor (P) and created flying paper sprites representing the Grade F exam sheet projectiles he shoots.
+* **Flat Floor Elements**: Implemented floor alignments for items (Gold rotating A+ coins and meal tray plates) and poison traps (flat green puddles) by setting the vertical render offset to anchor them to the wall bottom coordinates (`bottom_y`) and applying a flat squash multiplier to traps.
+* **Dynamic Door textures**: Drawn automatic doors (4) with dark blue steel textures and secret doors (5) with standard gray brick textures identical to normal walls to act as camouflage.
+* **Trap Visual Expansion**: Increased the horizontal and vertical scaling factors (`sf_w` from `0.7` to `1.1`, and `sf_h` from `0.3` to `0.4`) to make traps clearly recognizable and match the player slow-down zone.
+* **Sliding Door Animation rendering**: Read the cell coordinate status from `game_map`. When a door is in the `'opening'` state, calculated the vertical draw limits (`draw_end`) to shrink upwards proportional to the door opening progress, creating a smooth vertical slide.

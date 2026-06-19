@@ -1,20 +1,36 @@
-# 📝 player.py AI 프롬프트 기록장
+# 📝 player.py AI Prompt Log
 
-이 파일은 `player.py` 코드를 생성하거나 수정할 때 사용한 AI 프롬프트를 기록하는 공간입니다.
+This file is a log of AI prompts used when creating or modifying the `player.py` code.
 
-## 1. 역할 및 개발 목표 (Role & Objective)
-*여기에 AI에게 지정한 역할(예: 물리 엔진 개발자, 플레이어 조작 시스템 담당)과 개발 목표를 작성하세요.*
+## 1. Role & Objective
+* Develop player physics, translation movement, and viewing rotation systems for a 3D raycasted environment.
+* Implement smooth wall-sliding collisions, mouse tracking controls, and inertia.
 
-## 2. 사용한 프롬프트 (Prompts Used)
-### 버전 1 (최초 생성)
+## 2. Prompts Used
+### Version 1 (Initial Player Creation)
 ```markdown
-[최초 생성 시 입력한 프롬프트를 여기에 작성하세요]
+[Please write the prompt used for initial player creation here]
 ```
 
-### 버전 2 (기능 보완 및 디버깅)
+### Version 2 (Refinement and Debugging)
+- Optimized rotation and translation speeds, mouse sensitivity limits, and implemented linear interpolation (Lerp) for smooth sliding acceleration/deceleration.
+
+### Version 3 (Poison Slowdown effect)
 ```markdown
-[수정 및 추가 요청을 위해 입력한 프롬프트를 여기에 작성하세요]
+Create poison traps at random positions on the map floor that slowly drain health and slow down movement when stepped on. Create automatic doors that are normally closed but open when approached to act as shortcuts. Also create a secret room that only opens when you are almost touching the wall, containing either an A+ grade item that grants lots of score, or a cafeteria meal item that restores health. The two items must not spawn together in the same room.
 ```
 
-## 3. 피드백 및 조정 내용 (Feedback & Refinement)
-*AI가 출력한 코드의 오류나 동작 방식을 어떻게 수정해 나갔는지 기록하세요.*
+### Version 4 (Trap Collision Range Increase)
+```markdown
+Show the number of remaining enemies next to the kill counter. Make the poison puddles slightly larger, and make the health drain slower. Do not place traps in one-way paths (dead-ends). Also make the auto doors open only when standing close, similar to secret rooms.
+```
+
+### Version 5 (Movement Speed Re-balancing)
+```markdown
+Slow down player movement speed a bit, and end the game when all enemies are defeated.
+```
+
+## 3. Feedback & Refinement
+* **Poison Speed Debuff**: Created `is_poisoned` state flags within the `Player` class. During the movement update checks, if the player stands inside a poison puddle, their maximum translation speed and acceleration limits are reduced by 60% to apply the slow effect.
+* **Poison Trap Bounds Expansion**: Increased player-to-trap detection range from `0.6` to `0.9` to align the physical step trigger region with the scaled visual width of the green poison puddle on the screen.
+* **Controllable Inertia Tuning**: Tuned the player's movement physics. Lowered the speed limit (`max_speed`) from `5.0` to `3.8` and deceleration factors (`acceleration`) from `15.0` to `11.0` to reproduce the smooth but heavy inertial movement classic to early Doom games.

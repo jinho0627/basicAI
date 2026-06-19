@@ -1,20 +1,20 @@
-# 📝 raycaster.py AI 프롬프트 기록장
+# 📝 raycaster.py AI Prompt Log
 
-이 파일은 `raycaster.py` 코드를 생성하거나 수정할 때 사용한 AI 프롬프트를 기록하는 공간입니다.
+This file is a log of AI prompts used when creating or modifying the `raycaster.py` code.
 
-## 1. 역할 및 개발 목표 (Role & Objective)
-*여기에 AI에게 지정한 역할(예: 레이캐스팅 엔진 전문가, 그래픽스 프로그래머)과 개발 목표를 작성하세요.*
+## 1. Role & Objective
+* Create a raycasting engine to scan the 2D grid layout, project columns, calculate wall distance, and solve DDA (Digital Differential Analysis) collision angles.
 
-## 2. 사용한 프롬프트 (Prompts Used)
-### 버전 1 (최초 생성)
+## 2. Prompts Used
+### Version 1 (Initial Raycasting Logic)
 ```markdown
-[최초 생성 시 입력한 프롬프트를 여기에 작성하세요]
+[Please write the prompt used for initial creation here]
 ```
 
-### 버전 2 (기능 보완 및 디버깅)
+### Version 2 (Refinement and Debugging)
 ```markdown
-[수정 및 추가 요청을 위해 입력한 프롬프트를 여기에 작성하세요]
+[Please write the prompt used for debugging or refining here]
 ```
 
-## 3. 피드백 및 조정 내용 (Feedback & Refinement)
-*AI가 출력한 코드의 오류나 동작 방식을 어떻게 수정해 나갔는지 기록하세요.*
+## 3. Feedback & Refinement
+* **Cell Hits**: Configured the single raycast lookup to return hitting grid positions (`map_x`, `map_y`) so the renderer can inspect the target cell properties (such as door animation progress).

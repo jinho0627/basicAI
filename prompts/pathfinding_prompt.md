@@ -1,28 +1,27 @@
-#  pathfinding.py AI 프롬프트 기록장
+# 📝 pathfinding.py AI Prompt Log
 
-이 파일은 `pathfinding.py` 코드를 생성하거나 수정할 때 사용한 AI 프롬프트를 기록하는 공간입니다.
+This file is a log of AI prompts used when creating or modifying the `pathfinding.py` code.
 
-## 1. 역할 및 개발 목표 (Role & Objective)
-* 2D 미로 맵 상에서 시작점(적 위치)에서 목적지(플레이어 위치)까지의 최단 경로 탐색 알고리즘(A* 알고리즘) 구현
-* 게임 루프 내에서 매끄러운 성능을 보장할 수 있는 적 탐색 최적화
-* 적(Enemy) FSM의 CHASE 상태와 결합하여 경로 노드를 실시간 추적
+## 1. Role & Objective
+* Implement the A* search algorithm to calculate the shortest path from a start position (enemy coordinates) to a goal position (player coordinates) on a 2D grid maze.
+* Optimize path search execution to ensure smooth frame rates in the main game loop.
+* Coordinate with the enemy FSM Chase state to follow path nodes in real-time.
 
-## 2. 사용한 프롬프트 (Prompts Used)
-### 버전 1 (최초 생성 및 최단 경로 설계)
+## 2. Prompts Used
+### Version 1 (Initial Shortest Path Logic)
 ```markdown
-파이썬으로 둠 이라는 게임을 만들건데 내가 B팀원 : 맵 및 적 AI 담당이거든
+I'm going to make a game called Doom in Python, and I'm Team B member: in charge of map and enemy AI.
 
-주요 업무
-적 추적 알고리즘
+Key tasks:
+- Enemy tracking/chase algorithm
 
-GitHub 담당 파일 예시
+Example file in GitHub:
 pathfinding.py
 
-이런 파일들을 만들텐데 나중에 하나로 합칠수 있게 해줘
+We'll create these files and make sure they can be merged into a single game later.
 ```
 
-## 3. 피드백 및 조정 내용 (Feedback & Refinement)
-* **휴리스틱 최적화**: 맵이 2D 그리드이고 대각선 이동 없이 상하좌우만 가능하므로, 최단 경로 예측 비용 계산을 위해 맨해튼 거리(Manhattan Distance) 휴리스틱을 채택함.
-* **성능 최적화**: 경로 노드 관리 시 `heapq` 모듈을 통한 최소 힙(Min Heap) 정렬 구조를 사용하여 효율성(G+H 비용 최소화)을 극대화함.
-* **예외 처리**: 만약 플레이어와 적 사이에 갈 수 없는 길이 발생할 경우(맵에 갇힘 등) 빈 리스트(`[]`)를 반환하여 프로그램이 다운되지 않고 대기 상태로 유지되도록 보장함.
-
+## 3. Feedback & Refinement
+* **Heuristic Choice**: Adopted the Manhattan Distance heuristic because players and enemies only move orthogonally (up, down, left, right) on the 2D grid map with no diagonal routes.
+* **Performance Enhancements**: Used the `heapq` module to maintain the open set as a minimum heap, maximizing lookup speeds for nodes with the lowest estimated $F$ cost.
+* **Fallbacks**: Returned an empty path list (`[]`) in case the player is unreachable (e.g. enclosed rooms or out-of-bound coordinates) to prevent crashes.
